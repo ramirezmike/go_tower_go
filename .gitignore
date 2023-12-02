@@ -1,1 +1,5 @@
 /target
+/wasm/*.js
+/wasm/*.wasm
+/wasm/*.ts
+/wasm/assets
