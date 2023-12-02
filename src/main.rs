@@ -2,10 +2,15 @@ use bevy::prelude::*;
 use bevy_turborand::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 
+mod assets;
+mod ingame;
+mod util;
+
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .add_plugins((PhysicsPlugins::default(), RngPlugin::default(), ))
+        .add_plugins((assets::AssetsPlugin, util::UtilPlugin, ingame::InGamePlugin, ))
         .add_systems(Update, bootstrap.run_if(in_state(AppState::Initial)))
         .add_state::<AppState>();
 
@@ -30,5 +35,13 @@ pub enum AppState {
     InGame,
 }
 
+use assets::command_ext::*;
 fn bootstrap(mut commands: Commands) {
+    #[cfg(feature = "debug")]
+    {
+        commands.load_state(AppState::InGame);
+    }
+
+    #[cfg(not(feature = "debug"))]
+    commands.load_state(AppState::InGame);
 }
