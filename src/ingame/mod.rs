@@ -3,19 +3,24 @@ use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_turborand::prelude::*;
 use std::f32::consts::TAU;
 use crate::{assets, AppState, util, };
+use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 
+mod bot;
+mod bullet;
 mod camera; 
+mod car;
 mod controller;
-mod player;
+pub mod player;
+pub mod tower;
 pub mod config;
 
 pub struct InGamePlugin;
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin))
+        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin, tower::TowerPlugin, bullet::BulletPlugin, bot::BotPlugin))
             .add_systems(OnEnter(AppState::InGame), setup);
 
-        if cfg!(feature = "lines") {
+        if cfg!(feature = "colliders") {
             app.add_plugins(PhysicsDebugPlugin::default());
         }
     }
@@ -31,6 +36,7 @@ impl Command for IngameLoader {
         let (mut assets_handler, mut game_assets) = system_state.get_mut(world);
 
         assets_handler.add_glb(&mut game_assets.track, "models/track.glb");
+        assets_handler.add_glb(&mut game_assets.tower_01, "models/tower.glb");
     }
 }
 
@@ -58,6 +64,15 @@ fn setup(
                             cmds.insert((
                                 RigidBody::Static,
                                 Collider::trimesh_from_mesh(mesh).unwrap(), 
+                                OutlineBundle {
+                                    outline: OutlineVolume {
+                                        visible: true,
+                                        width: 1.0,
+                                        colour: Color::BLACK,
+                                    },
+                                    mode: OutlineMode::RealVertex,
+                                    ..default()
+                                },
                             ));
                         }
                     }
@@ -66,6 +81,7 @@ fn setup(
         ));
     }
 
+    // player placeholder
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -74,8 +90,41 @@ fn setup(
             ..default()
         },
         player::Player,
-        controller::CharacterControllerBundle::new(Collider::cuboid(1.0, 1.0, 1.0), Vector::NEG_Y * 9.81 * 2.0)
-        //controller::CharacterControllerBundle::new(Collider::capsule(1.0, 0.4), Vector::NEG_Y * 9.81 * 2.0)
+        car::Car,
+        OutlineBundle {
+            outline: OutlineVolume {
+                visible: true,
+                width: 1.0,
+                colour: Color::BLACK,
+            },
+            mode: OutlineMode::RealVertex,
+            ..default()
+        },
+        controller::CharacterControllerKeyboard,
+        //controller::CharacterControllerBundle::new(Collider::cuboid(1.0, 1.0, 1.0), Vector::NEG_Y * 9.81 * 2.0)
+        controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.4), Vector::NEG_Y * 9.81 * 2.0)
+    ));
+
+    // bot placeholder
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: materials.add(Color::rgb_u8(124, 144, 255).into()),
+            transform: Transform::from_xyz(1., 0.5, 0.).with_rotation(Quat::from_axis_angle(Vec3::Y, TAU * 0.75)),
+            ..default()
+        },
+        car::Car,
+        OutlineBundle {
+            outline: OutlineVolume {
+                visible: true,
+                width: 1.0,
+                colour: Color::RED,
+            },
+            mode: OutlineMode::RealVertex,
+            ..default()
+        },
+        bot::Bot,
+        controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.4), Vector::NEG_Y * 9.81 * 2.0)
     ));
 
     commands.insert_resource(AmbientLight {

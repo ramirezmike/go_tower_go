@@ -1,6 +1,6 @@
 use bevy::{prelude::*, ecs::system::Command};
 use smooth_bevy_cameras::{
-    controllers::fps::FpsCameraPlugin,
+    controllers::fps::FpsCameraController,
     LookTransform, LookTransformBundle, LookTransformPlugin, Smoother,
 };
 use super::player;
@@ -9,14 +9,13 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(LookTransformPlugin)
-            .add_plugins(FpsCameraPlugin::default())
             .add_systems(Update, follow_player);
     }
 }
 
 fn follow_player(
     players: Query<&Transform, With<player::Player>>,
-    mut cameras: Query<&mut LookTransform>,
+    mut cameras: Query<&mut LookTransform, Without<FpsCameraController>>,
 ) {
     for mut camera_transform in &mut cameras {
         for player_transform in &players {

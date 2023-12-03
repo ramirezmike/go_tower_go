@@ -7,7 +7,7 @@ pub struct CharacterControllerPlugin;
 
 impl Plugin for CharacterControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<MovementAction>()
+        app.add_event::<MovementEvent>()
             .add_systems(
                 Update,
                 (
@@ -31,15 +31,23 @@ impl Plugin for CharacterControllerPlugin {
 
 /// An event sent for a movement input action.
 #[derive(Event)]
+pub struct MovementEvent {
+    pub entity: Entity,
+    pub action: MovementAction,
+}
+
 pub enum MovementAction {
     Gas,
     Brake,
     Turn(f32),
 }
 
-/// A marker component indicating that an entity is using a character controller.
 #[derive(Component)]
-pub struct CharacterController;
+pub struct CommonController;
+
+/// A marker component indicating that an entity is using the keyboard
+#[derive(Component)]
+pub struct CharacterControllerKeyboard;
 
 /// A marker component indicating that an entity is on the ground.
 #[derive(Component)]
@@ -74,8 +82,8 @@ pub struct MaxSlopeAngle(Scalar);
 /// A bundle that contains the components needed for a basic
 /// kinematic character controller.
 #[derive(Bundle)]
-pub struct CharacterControllerBundle {
-    character_controller: CharacterController,
+pub struct CommonControllerBundle {
+    common_controller: CommonController,
     rigid_body: RigidBody,
     collider: Collider,
     ground_caster: ShapeCaster,
@@ -113,18 +121,18 @@ impl MovementBundle {
 
 impl Default for MovementBundle {
     fn default() -> Self {
-        Self::new(config::BASE_ACCELERATION, config::BASE_DECELERATION, config::MOVEMENT_DAMPING, config::ROTATION_DAMPING,  PI * 0.90)
+        Self::new(config::BASE_ACCELERATION, config::BASE_DECELERATION, config::MOVEMENT_DAMPING, config::ROTATION_DAMPING,  PI * config::MAX_SLOPE)
     }
 }
 
-impl CharacterControllerBundle {
+impl CommonControllerBundle {
     pub fn new(collider: Collider, gravity: Vector) -> Self {
         // Create shape caster as a slightly smaller version of collider
         let mut caster_shape = collider.clone();
         caster_shape.set_scale(Vector::ONE * 0.99, 10);
 
         Self {
-            character_controller: CharacterController,
+            common_controller: CommonController,
             rigid_body: RigidBody::Kinematic,
             collider,
             ground_caster: ShapeCaster::new(
@@ -152,32 +160,47 @@ impl CharacterControllerBundle {
     }
 }
 
-/// Sends [`MovementAction`] events based on keyboard input.
+/// Sends [`MovementEvent`] events based on keyboard input.
 fn keyboard_input(
-    mut movement_event_writer: EventWriter<MovementAction>,
+    mut movement_event_writer: EventWriter<MovementEvent>,
     keyboard_input: Res<Input<KeyCode>>,
+    keyboard_player: Query<Entity, With<CharacterControllerKeyboard>>,
 ) {
-    let up = keyboard_input.any_pressed([KeyCode::W, KeyCode::Up, KeyCode::K]);
-    let down = keyboard_input.any_pressed([KeyCode::S, KeyCode::Down, KeyCode::J]);
-    let left = keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]);
-    let right = keyboard_input.any_pressed([KeyCode::D, KeyCode::Right]);
+    for entity in &keyboard_player {
+        let up = keyboard_input.any_pressed([KeyCode::K]);
+        let down = keyboard_input.any_pressed([KeyCode::J]);
+        let left = keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]);
+        let right = keyboard_input.any_pressed([KeyCode::D, KeyCode::Right]);
 
-    if up {
-        movement_event_writer.send(MovementAction::Gas);
-    }
-    if down {
-        movement_event_writer.send(MovementAction::Brake);
-    }
-    if left {
-        movement_event_writer.send(MovementAction::Turn(1.));
-    } else if right {
-        movement_event_writer.send(MovementAction::Turn(-1.));
+        if up {
+            movement_event_writer.send(MovementEvent {
+                entity,
+                action: MovementAction::Gas,
+            });
+        }
+        if down {
+            movement_event_writer.send(MovementEvent {
+                entity,
+                action: MovementAction::Brake,
+            });
+        }
+        if left {
+            movement_event_writer.send(MovementEvent {
+                entity,
+                action: MovementAction::Turn(1.),
+            });
+        } else if right {
+            movement_event_writer.send(MovementEvent {
+                entity,
+                action: MovementAction::Turn(-1.),
+            });
+        }
     }
 }
 
-/// Sends [`MovementAction`] events based on gamepad input.
+/// Sends [`MovementEvent`] events based on gamepad input.
 fn gamepad_input(
-    mut movement_event_writer: EventWriter<MovementAction>,
+    mut movement_event_writer: EventWriter<MovementEvent>,
     gamepads: Res<Gamepads>,
     axes: Res<Axis<GamepadAxis>>,
     buttons: Res<Input<GamepadButton>>,
@@ -194,7 +217,7 @@ fn gamepad_input(
 
         if let (Some(x), Some(y)) = (axes.get(axis_lx), axes.get(axis_ly)) {
             // TODO: For controller support
-            movement_event_writer.send(MovementAction::Turn(-1.));
+            // movement_event_writer.send(MovementAction::Turn(-1.));
         }
     }
 }
@@ -204,7 +227,7 @@ fn update_grounded(
     mut commands: Commands,
     mut query: Query<
         (Entity, &ShapeHits, &Rotation, Option<&MaxSlopeAngle>),
-        With<CharacterController>,
+        With<CommonController>,
     >,
 ) {
     for (entity, hits, rotation, max_slope_angle) in &mut query {
@@ -226,10 +249,10 @@ fn update_grounded(
     }
 }
 
-/// Responds to [`MovementAction`] events and moves character controllers accordingly.
+/// Responds to [`MovementEvent`] events and moves character controllers accordingly.
 fn movement(
     time: Res<Time>,
-    mut movement_event_reader: EventReader<MovementAction>,
+    mut movement_event_reader: EventReader<MovementEvent>,
     mut controllers: Query<(
         &MovementAcceleration,
         &MovementDeceleration,
@@ -242,10 +265,10 @@ fn movement(
     let delta_time = time.delta_seconds();
 
     for event in movement_event_reader.read() {
-        for (movement_acceleration, movement_deceleration, rotation_damping, mut linear_velocity, mut transform, is_grounded) in
-            &mut controllers
-        {
-            match event {
+        println!("Received move");
+        if let Ok((movement_acceleration, movement_deceleration, rotation_damping, mut linear_velocity, mut transform, is_grounded)) = controllers.get_mut(event.entity) {
+            println!("got entity");
+            match event.action {
                 MovementAction::Gas => {
                     let direction = transform.forward(); 
                     linear_velocity.x += direction.x * movement_acceleration.0 * delta_time;
@@ -305,7 +328,7 @@ fn kinematic_controller_collisions(
             &mut LinearVelocity,
             Option<&MaxSlopeAngle>,
         ),
-        With<CharacterController>,
+        With<CommonController>,
     >,
 ) {
     // Iterate through collisions and move the kinematic body to resolve penetration

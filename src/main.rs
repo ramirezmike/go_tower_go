@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_turborand::prelude::*;
 use bevy_xpbd_3d::prelude::*;
+use bevy_mod_outline::*;
 
 mod assets;
 mod ingame;
@@ -12,7 +13,7 @@ mod debug;
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        .add_plugins((PhysicsPlugins::default(), RngPlugin::default(), ))
+        .add_plugins((PhysicsPlugins::default(), RngPlugin::default(), OutlinePlugin))
         .add_plugins((assets::AssetsPlugin, util::UtilPlugin, ingame::InGamePlugin, ))
         .add_systems(Update, bootstrap.run_if(in_state(AppState::Initial)))
         .add_state::<AppState>();

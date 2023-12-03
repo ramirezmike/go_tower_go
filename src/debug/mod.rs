@@ -3,14 +3,15 @@ use bevy::{
     prelude::*,
     app::AppExit,
 };
-use smooth_bevy_cameras::controllers::fps::FpsCameraController;
-use smooth_bevy_cameras::controllers::orbit::OrbitCameraController;
+use smooth_bevy_cameras::controllers::fps::{FpsCameraController, FpsCameraPlugin};
+use crate::ingame::{tower::TowerSpawner, player::Player};
 
 pub struct DebugPlugin;
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
             .add_systems(Update, (fps_update, debug))
+            .add_plugins(FpsCameraPlugin::default())
             .add_plugins((FrameTimeDiagnosticsPlugin::default(),));
     }
 }
@@ -57,37 +58,29 @@ fn debug(
     mut commands: Commands,
     keys: ResMut<Input<KeyCode>>,
     mut exit: ResMut<Events<AppExit>>,
-    mut cameras: Query<(Entity, Option<&mut FpsCameraController>, Option<&mut OrbitCameraController>)>,
+    mut cameras: Query<(Entity, Option<&mut FpsCameraController>)>,
+    player: Query<&Transform, With<Player>>,
 ) {
     if keys.just_pressed(KeyCode::Q) {
         exit.send(AppExit);
     }
     if keys.just_pressed(KeyCode::C) {
-        for (camera, maybe_fps, maybe_orbit) in &mut cameras {
-            if maybe_fps.is_some() {
-                let mut controller = maybe_fps.unwrap();
-                controller.enabled = !controller.enabled;
-            }
-            if maybe_orbit.is_some() {
-                let mut controller = maybe_orbit.unwrap();
-                controller.enabled = !controller.enabled;
-            }
+        for (camera, maybe_fps) in &mut cameras {
+            match maybe_fps {
+                Some(_) => commands.entity(camera).remove::<FpsCameraController>(),
+                None => commands.entity(camera)
+                                .insert(FpsCameraController {
+                                    enabled: true,
+                                    translate_sensitivity: 20.0,
+                                    ..default()
+                                })
+            };
         }
     }
-    if keys.just_pressed(KeyCode::V) {
-        for (camera, maybe_fps, maybe_orbit) in &mut cameras {
-            if maybe_fps.is_some() {
-                commands.entity(camera).remove::<FpsCameraController>();
-                commands.entity(camera).insert(OrbitCameraController::default());
-            }
-            if maybe_orbit.is_some() {
-                commands.entity(camera).remove::<OrbitCameraController>();
-                commands.entity(camera).insert(FpsCameraController {
-                    enabled: true,
-                    translate_sensitivity: 20.0,
-                    ..default()
-                });
-            }
-        }
+    if keys.just_pressed(KeyCode::T) {
+        let player = player.single();
+        commands.add(TowerSpawner {
+            spawn_point: player.translation
+        });
     }
 }
