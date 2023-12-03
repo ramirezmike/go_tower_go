@@ -1,0 +1,4 @@
+pub const BASE_ACCELERATION: f32 = 40.0;
+pub const BASE_DECELERATION: f32 = 0.25;
+pub const MOVEMENT_DAMPING: f32 = 0.99;
+pub const ROTATION_DAMPING: f32 = 0.08;

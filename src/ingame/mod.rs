@@ -1,14 +1,18 @@
 use bevy::{prelude::*, ecs::system::{Command, SystemState}, gltf::Gltf, };
-use bevy_xpbd_3d::prelude::*;
+use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_turborand::prelude::*;
+use std::f32::consts::TAU;
 use crate::{assets, AppState, util, };
 
 mod camera; 
+mod controller;
+mod player;
+pub mod config;
 
 pub struct InGamePlugin;
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((camera::CameraPlugin,))
+        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin))
             .add_systems(OnEnter(AppState::InGame), setup);
 
         if cfg!(feature = "lines") {
@@ -66,22 +70,32 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::rgb_u8(124, 144, 255).into()),
-            transform: Transform::from_xyz(0., 0.5, 0.),
+            transform: Transform::from_xyz(0., 0.5, 0.).with_rotation(Quat::from_axis_angle(Vec3::Y, TAU * 0.75)),
             ..default()
         },
-        RigidBody::Dynamic,
-        Collider::cuboid(1.0, 1.0, 1.0),
+        player::Player,
+        controller::CharacterControllerBundle::new(Collider::cuboid(1.0, 1.0, 1.0), Vector::NEG_Y * 9.81 * 2.0)
+        //controller::CharacterControllerBundle::new(Collider::capsule(1.0, 0.4), Vector::NEG_Y * 9.81 * 2.0)
     ));
 
-    commands.spawn((PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500.0,
-            shadows_enabled: true,
-            ..default()
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.50,
+    });
+    commands.spawn((
+        DirectionalLightBundle {
+            transform: Transform::from_rotation(Quat::from_axis_angle(
+                Vec3::new(-0.8263363, -0.53950554, -0.16156079),
+                2.465743,
+            )),
+            directional_light: DirectionalLight {
+                illuminance: 100000.0,
+                shadows_enabled: true,
+                ..Default::default()
+            },
+            ..Default::default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    }, 
+        CleanupMarker,
     ));
 
     commands.add(camera::SpawnCamera { cleanup_marker: CleanupMarker });

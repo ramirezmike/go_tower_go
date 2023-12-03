@@ -6,6 +6,9 @@ mod assets;
 mod ingame;
 mod util;
 
+#[cfg(feature = "debug")]
+mod debug;
+
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
@@ -13,6 +16,11 @@ fn main() {
         .add_plugins((assets::AssetsPlugin, util::UtilPlugin, ingame::InGamePlugin, ))
         .add_systems(Update, bootstrap.run_if(in_state(AppState::Initial)))
         .add_state::<AppState>();
+
+    #[cfg(feature = "debug")]
+    {
+        app.add_plugins(debug::DebugPlugin);
+    }
 
     #[cfg(feature = "inspect")]
     {
