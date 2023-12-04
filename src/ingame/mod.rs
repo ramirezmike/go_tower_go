@@ -10,6 +10,7 @@ mod bullet;
 mod camera; 
 mod car;
 mod controller;
+mod path;
 pub mod player;
 pub mod tower;
 pub mod config;
@@ -17,7 +18,7 @@ pub mod config;
 pub struct InGamePlugin;
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin, tower::TowerPlugin, bullet::BulletPlugin, bot::BotPlugin))
+        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin, tower::TowerPlugin, bullet::BulletPlugin, bot::BotPlugin, path::PathPlugin,))
             .add_systems(OnEnter(AppState::InGame), setup);
 
         if cfg!(feature = "colliders") {
@@ -75,6 +76,19 @@ fn setup(
                                 },
                             ));
                         }
+
+                        if name.contains("delete") {
+                            let entity = cmds.id();
+                            cmds.commands().entity(entity).despawn_recursive();
+                        }
+
+                        if name.contains("path") {
+                            if let (Some(global_transform), Some(aabb)) = (hook_data.global_transform, hook_data.aabb) {
+                                cmds.commands().add(path::PathAdder { global_transform: *global_transform, aabb: *aabb, name: name.to_string() });
+                            }
+
+                            cmds.insert(Visibility::Hidden);
+                        }
                     }
                 })
             }, 
@@ -109,7 +123,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb_u8(124, 144, 255).into()),
+            material: materials.add(Color::rgb_u8(255, 144, 124).into()),
             transform: Transform::from_xyz(1., 0.5, 0.).with_rotation(Quat::from_axis_angle(Vec3::Y, TAU * 0.75)),
             ..default()
         },
@@ -118,12 +132,12 @@ fn setup(
             outline: OutlineVolume {
                 visible: true,
                 width: 1.0,
-                colour: Color::RED,
+                colour: Color::BLACK,
             },
             mode: OutlineMode::RealVertex,
             ..default()
         },
-        bot::Bot,
+        bot::Bot::default(),
         controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.4), Vector::NEG_Y * 9.81 * 2.0)
     ));
 

@@ -265,9 +265,7 @@ fn movement(
     let delta_time = time.delta_seconds();
 
     for event in movement_event_reader.read() {
-        println!("Received move");
         if let Ok((movement_acceleration, movement_deceleration, rotation_damping, mut linear_velocity, mut transform, is_grounded)) = controllers.get_mut(event.entity) {
-            println!("got entity");
             match event.action {
                 MovementAction::Gas => {
                     let direction = transform.forward(); 
@@ -302,7 +300,8 @@ fn apply_gravity(
 }
 
 /// Slows down movement in the XZ plane.
-fn apply_movement_damping(mut query: Query<(&MovementDampingFactor, &mut LinearVelocity)>) {
+fn apply_movement_damping(time: Res<Time>, mut query: Query<(&MovementDampingFactor, &mut LinearVelocity)>) {
+    let delta_time = time.delta_seconds();
     for (damping_factor, mut linear_velocity) in &mut query {
         // We could use `LinearDamping`, but we don't want to dampen movement along the Y axis
         linear_velocity.x *= damping_factor.0;

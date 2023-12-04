@@ -23,6 +23,7 @@ pub struct HookedSceneBundle {
 pub struct HookData<'a, 'w> {
     pub mesh: Option<&'a Mesh>,
     pub global_transform: Option<&'a GlobalTransform>,
+    pub transform: Option<&'a Transform>,
     pub material: Option<&'a StandardMaterial>,
     pub aabb: Option<&'a Aabb>,
     pub name: Option<&'a Name>,
@@ -74,6 +75,7 @@ pub fn run_hooks(
     standard_materials: Res<Assets<StandardMaterial>>,
     components: Query<(
         Option<&GlobalTransform>,
+        Option<&Transform>,
         Option<&Aabb>,
         Option<&Handle<Mesh>>,
         Option<&Handle<StandardMaterial>>,
@@ -83,7 +85,7 @@ pub fn run_hooks(
 ) {
     for (entity, instance, hooked, maybe_on_complete) in &unloaded_instances {
         for entity in scene_manager.iter_instance_entities(**instance) {
-            if let Ok((global_transform, aabb, mesh_handle, material_handle, name)) = components.get(entity) {
+            if let Ok((global_transform, transform, aabb, mesh_handle, material_handle, name)) = components.get(entity) {
                 let mesh = mesh_handle.and_then(|m| meshes.get(m));
                 let material = material_handle.and_then(|m| standard_materials.get(m));
 
@@ -91,6 +93,7 @@ pub fn run_hooks(
                     mesh,
                     material,
                     global_transform,
+                    transform,
                     aabb,
                     name,
                     phantom: PhantomData::<&()>,
