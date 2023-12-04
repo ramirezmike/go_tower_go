@@ -35,7 +35,7 @@ impl Command for PathAdder {
 
                 path_manager.points.insert(index, point);
             } else {
-                println!("Just once please");
+                // there should only be one of these
                 path_manager.points.insert(0, point);
             }
 

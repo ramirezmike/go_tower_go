@@ -6,6 +6,7 @@ use smooth_bevy_cameras::{
 use super::{player, controller};
 use bevy::transform::TransformSystem;
 use bevy_xpbd_3d::PhysicsSet;
+use bevy_xpbd_3d::prelude::*;
 
 pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
@@ -22,21 +23,18 @@ impl Plugin for CameraPlugin {
 }
 
 fn follow_player(
-    players: Query<&Transform, With<player::Player>>,
+    players: Query<(&Transform, &LinearVelocity), With<player::Player>>,
     mut cameras: Query<&mut Transform, (With<Camera>, Without<FpsCameraController>, Without<player::Player>)>,
     time: Res<Time>,
 //  mut cameras: Query<&mut Transform, >,
 ) {
     for mut c_transform in &mut cameras {
-        for player_transform in &players {
-//          camera_transform.eye = player_transform.translation + (player_transform.back() * 10.0) + Vec3::new(0., 2.7, 0.);
-//          camera_transform.target = player_transform.translation + (player_transform.forward() * 4.0) + Vec3::new(0., 0.8, 0.);
+        for (player_transform, linear_velocity) in &players {
 
             c_transform.translation = player_transform.translation + (player_transform.back() * 10.0) + Vec3::new(0., 2.7, 0.);
-            let look_at = c_transform.looking_at(player_transform.translation + (player_transform.forward() * 4.0) + Vec3::new(0., 0.8, 0.), Vec3::Y);
+            let between_velocity_and_facing = linear_velocity.0.lerp(player_transform.translation + (player_transform.forward() * 4.0), 0.96);
+            let look_at = c_transform.looking_at(between_velocity_and_facing + Vec3::new(0., 0.8, 0.), Vec3::Y);
             c_transform.rotation = c_transform.rotation.slerp(look_at.rotation, 1. -time.delta_seconds());
-//          camera_transform.eye = c_transform.translation;
-//          camera_transform.target = player_transform.translation + (player_transform.forward() * 4.0) + Vec3::new(0., 0.8, 0.);
         }
     }
 }

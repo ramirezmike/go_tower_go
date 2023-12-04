@@ -8,7 +8,7 @@ use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 mod bot;
 mod bullet;
 mod camera; 
-mod car;
+mod kart;
 mod controller;
 mod path;
 pub mod player;
@@ -48,11 +48,11 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut global_rng: ResMut<GlobalRng>,
     game_assets: Res<assets::GameAssets>,
     assets_gltf: Res<Assets<Gltf>>,
 ) {
     if let Some(gltf) = assets_gltf.get(&game_assets.track) {
+        let mut player_spawned = false;
         commands.spawn((
             util::scene_hook::HookedSceneBundle {
                 scene: SceneBundle {
@@ -89,59 +89,18 @@ fn setup(
 
                             cmds.insert(Visibility::Hidden);
                         }
+
+                        if name.contains("kart_spawner") {
+                            if let (Some(global_transform), Some(aabb)) = (hook_data.global_transform, hook_data.aabb) {
+                                cmds.commands().add(kart::KartSpawner { global_transform: *global_transform, aabb: *aabb });
+                            }
+
+                            let entity = cmds.id();
+                            cmds.commands().entity(entity).despawn_recursive();
+                        }
                     }
                 })
             }, 
-        ));
-    }
-
-    // player placeholder
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb_u8(124, 144, 255).into()),
-            transform: Transform::from_xyz(0., 0.5, 0.).with_rotation(Quat::from_axis_angle(Vec3::Y, TAU * 0.75)),
-            ..default()
-        },
-        player::Player,
-        car::Car,
-        OutlineBundle {
-            outline: OutlineVolume {
-                visible: true,
-                width: 1.0,
-                colour: Color::BLACK,
-            },
-            mode: OutlineMode::RealVertex,
-            ..default()
-        },
-        controller::CharacterControllerKeyboard,
-        //controller::CharacterControllerBundle::new(Collider::cuboid(1.0, 1.0, 1.0), Vector::NEG_Y * 9.81 * 2.0)
-        controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.4), Vector::NEG_Y * 9.81 * 2.0)
-    ));
-
-    // bot placeholder
-    for i in 0..7 {
-        let rand = global_rng.f32_normalized();
-
-        commands.spawn((
-            PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-                material: materials.add(Color::rgb_u8(255, 144, 124).into()),
-                transform: Transform::from_xyz(i as f32 * 2., 0.5, 0.).with_rotation(Quat::from_axis_angle(Vec3::Y, TAU * 0.75)),
-                ..default()
-            },
-            car::Car,
-            OutlineBundle {
-                outline: OutlineVolume {
-                    visible: true,
-                    width: 1.0,
-                    colour: Color::BLACK,
-                },
-                mode: OutlineMode::RealVertex,
-                ..default()
-            },
-            bot::Bot::new(rand),
-            controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.4), Vector::NEG_Y * 9.81 * 2.0)
         ));
     }
 
@@ -149,6 +108,7 @@ fn setup(
         color: Color::WHITE,
         brightness: 0.50,
     });
+
     commands.spawn((
         DirectionalLightBundle {
             transform: Transform::from_rotation(Quat::from_axis_angle(

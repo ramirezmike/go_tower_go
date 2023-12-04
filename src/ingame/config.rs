@@ -6,3 +6,4 @@ pub const MAX_SLOPE: f32 = 0.35;
 pub const TRACK_WIDTH: f32 = 10.0;
 pub const TOWER_HEIGHT: f32 = 10.0;
 pub const TOWER_POSITION_BUFFER: f32 = 1.0;
+pub const NUMBER_OF_PLAYERS: usize = 1; // TODO: Move this to Game Settings

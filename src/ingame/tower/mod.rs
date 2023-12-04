@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::ecs::system::{Command, SystemState};
 use bevy::gltf::Gltf;
 use crate::{assets, util, AppState, };
-use super::{car, bullet, config};
+use super::{kart, bullet, config};
 use bevy_xpbd_3d::prelude::*;
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 
@@ -24,8 +24,8 @@ struct Tower {
 
 fn tower_actions(
     mut commands: Commands,
-    mut towers: Query<(&mut Tower, &Transform), Without<car::Car>>,
-    cars: Query<(&car::Car, &Transform), Without<Tower>>,
+    mut towers: Query<(&mut Tower, &Transform), Without<kart::Kart>>,
+    karts: Query<(&kart::Kart, &Transform), Without<Tower>>,
     time: Res<Time>,
     spatial_query: SpatialQuery,
 
