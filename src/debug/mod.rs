@@ -3,7 +3,8 @@ use bevy::{
     prelude::*,
     app::AppExit,
 };
-use smooth_bevy_cameras::controllers::fps::{FpsCameraController, FpsCameraPlugin};
+use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin};
+use smooth_bevy_cameras::{LookTransform, LookTransformBundle, Smoother};
 use crate::ingame::{tower::TowerSpawner, player::Player};
 
 pub struct DebugPlugin;
@@ -58,7 +59,7 @@ fn debug(
     mut commands: Commands,
     keys: ResMut<Input<KeyCode>>,
     mut exit: ResMut<Events<AppExit>>,
-    mut cameras: Query<(Entity, Option<&mut FpsCameraController>)>,
+    mut cameras: Query<(Entity, Option<&mut FpsCameraController>), With<Camera>>,
     player: Query<&Transform, With<Player>>,
 ) {
     if keys.just_pressed(KeyCode::Q) {
@@ -67,13 +68,24 @@ fn debug(
     if keys.just_pressed(KeyCode::C) {
         for (camera, maybe_fps) in &mut cameras {
             match maybe_fps {
-                Some(_) => commands.entity(camera).remove::<FpsCameraController>(),
-                None => commands.entity(camera)
-                                .insert(FpsCameraController {
-                                    enabled: true,
-                                    translate_sensitivity: 20.0,
-                                    ..default()
-                                })
+                Some(_) => {
+                    commands.entity(camera).remove::<FpsCameraController>()
+                    .remove::<Smoother>()
+                    .remove::<LookTransform>();
+                },
+                None => { 
+                    commands.entity(camera)
+                                .insert(FpsCameraBundle::new(
+                                    FpsCameraController {
+                                        enabled: true,
+                                        translate_sensitivity: 20.0,
+                                        ..default()
+                                    },
+                                    Vec3::new(-2.0, 5.0, 5.0),
+                                    Vec3::new(0., 0., 0.),
+                                    Vec3::Y,
+                                ));
+                }
             };
         }
     }
