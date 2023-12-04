@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use crate::{AppState, };
 use super::{controller, path};
 use bevy_xpbd_3d::prelude::*;
+use bevy_turborand::prelude::*;
 
 #[cfg(feature = "gizmos")]
 use bevy::gizmos::gizmos::Gizmos;
@@ -15,7 +16,17 @@ impl Plugin for BotPlugin {
 
 #[derive(Component, Default)]
 pub struct Bot {
-    target: Option<usize>
+    target: Option<usize>,
+    random: f32,
+}
+
+impl Bot {
+    pub fn new(random: f32) -> Self {
+        Bot {
+            random,
+            ..default()
+        }
+    }
 }
 
 fn find_target(
@@ -65,13 +76,13 @@ fn move_bots(
                 //println!("Dot is {:?}, turning left", dot);
                 movement_event_writer.send(controller::MovementEvent {
                     entity,
-                    action: controller::MovementAction::Turn(0.1 * dot.abs()),
+                    action: controller::MovementAction::Turn(0.1 * dot.abs() + bot.random),
                 });
             } else if dot > 0. {
                 //println!("Dot is {:?}, turning right", dot);
                 movement_event_writer.send(controller::MovementEvent {
                     entity,
-                    action: controller::MovementAction::Turn(-0.1 * dot.abs()),
+                    action: controller::MovementAction::Turn(-0.1 * dot.abs() + bot.random),
                 });
             }
 

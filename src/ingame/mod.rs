@@ -120,26 +120,30 @@ fn setup(
     ));
 
     // bot placeholder
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb_u8(255, 144, 124).into()),
-            transform: Transform::from_xyz(1., 0.5, 0.).with_rotation(Quat::from_axis_angle(Vec3::Y, TAU * 0.75)),
-            ..default()
-        },
-        car::Car,
-        OutlineBundle {
-            outline: OutlineVolume {
-                visible: true,
-                width: 1.0,
-                colour: Color::BLACK,
+    for i in 0..7 {
+        let rand = global_rng.f32_normalized();
+
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                material: materials.add(Color::rgb_u8(255, 144, 124).into()),
+                transform: Transform::from_xyz(i as f32 * 2., 0.5, 0.).with_rotation(Quat::from_axis_angle(Vec3::Y, TAU * 0.75)),
+                ..default()
             },
-            mode: OutlineMode::RealVertex,
-            ..default()
-        },
-        bot::Bot::default(),
-        controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.4), Vector::NEG_Y * 9.81 * 2.0)
-    ));
+            car::Car,
+            OutlineBundle {
+                outline: OutlineVolume {
+                    visible: true,
+                    width: 1.0,
+                    colour: Color::BLACK,
+                },
+                mode: OutlineMode::RealVertex,
+                ..default()
+            },
+            bot::Bot::new(rand),
+            controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.4), Vector::NEG_Y * 9.81 * 2.0)
+        ));
+    }
 
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
