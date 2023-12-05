@@ -43,6 +43,7 @@ impl Command for IngameLoader {
         let (mut assets_handler, mut game_assets) = system_state.get_mut(world);
 
         assets_handler.add_glb(&mut game_assets.track, "models/track.glb");
+        assets_handler.add_glb(&mut game_assets.car, "models/tower_car.glb");
         assets_handler.add_glb(&mut game_assets.tower_01, "models/tower.glb");
 
         assets_handler.add_mesh(

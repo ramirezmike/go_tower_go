@@ -100,6 +100,7 @@ impl Command for CannonSpawner {
                             .looking_at(self.target - Vec3::new(0., config::TOWER_HEIGHT - 1., 0.), Vec3::Y),
                 ..default()
             },
+            ingame::CleanupMarker,
             OutlineBundle {
                 outline: OutlineVolume {
                     visible: true,
@@ -143,13 +144,19 @@ impl Command for TowerSpawner {
                         spawn_point + Vec3::new(config::TRACK_WIDTH, starting_height, 0.0),
                         spawn_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH),
                         spawn_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH),
+
+                        // just in case?
+                        spawn_point + Vec3::new(-config::TRACK_WIDTH + 1., starting_height, 0.0),
+                        spawn_point + Vec3::new(config::TRACK_WIDTH + 1., starting_height, 0.0),
+                        spawn_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH + 1.),
+                        spawn_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH + 1.),
                     );
 
                     for ray in rays_to_cast {
                         let hit = spatial_query.cast_ray(
                             ray,
                             -Vec3::Y,
-                            100.0,
+                            10.0,
                             true,
                             SpatialQueryFilter::default(),
                         );
@@ -199,9 +206,7 @@ impl Command for TowerSpawner {
                                 }, 
                             ));
                             break;
-                        } else {
-                            println!("nope");
-                        }
+                        } 
                     }
                 }
             }
