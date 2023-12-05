@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::ecs::system::{Command, SystemState};
 use bevy::gltf::Gltf;
 use crate::{assets, util, AppState, ingame, };
-use super::{kart, bullet, config};
+use super::{kart, bullet, config, points};
 use bevy_xpbd_3d::prelude::*;
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 
@@ -72,7 +72,7 @@ fn tower_actions(
 }
 
 pub struct TowerSpawner {
-    pub spawn_point: Vec3,
+    pub entity: Entity,
 }
 impl Command for TowerSpawner {
     fn apply(self, world: &mut World) {
@@ -81,69 +81,80 @@ impl Command for TowerSpawner {
             Res<assets::GameAssets>,
             Res<Assets<Gltf>>,
             SpatialQuery,
+            Query<(&Transform, &mut points::Points)>,
         )> = SystemState::new(world);
 
-        let (mut assets_handler, game_assets, assets_gltf, spatial_query) = system_state.get_mut(world);
-        let gltf = assets_gltf.get(&game_assets.tower_01);
-        if let Some(gltf) = gltf {
-            let scene = gltf.scenes[0].clone();
-            let starting_height = 5.0;
+        let (mut assets_handler, game_assets, assets_gltf, spatial_query, mut points) = system_state.get_mut(world);
 
-            let rays_to_cast = vec!(
-                self.spawn_point + Vec3::new(-config::TRACK_WIDTH, starting_height, 0.0),
-                self.spawn_point + Vec3::new(config::TRACK_WIDTH, starting_height, 0.0),
-                self.spawn_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH),
-                self.spawn_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH),
-            );
+        if let Ok((transform, mut point)) = points.get_mut(self.entity) {
+            let spawn_point = transform.translation;
+            let cost = 4; 
+            if point.0 >= cost {
+                let gltf = assets_gltf.get(&game_assets.tower_01);
+                if let Some(gltf) = gltf {
+                    let scene = gltf.scenes[0].clone();
+                    let starting_height = 5.0;
 
-            for ray in rays_to_cast {
-                let hit = spatial_query.cast_ray(
-                    ray,
-                    -Vec3::Y,
-                    100.0,
-                    true,
-                    SpatialQueryFilter::default(),
-                );
+                    let rays_to_cast = vec!(
+                        spawn_point + Vec3::new(-config::TRACK_WIDTH, starting_height, 0.0),
+                        spawn_point + Vec3::new(config::TRACK_WIDTH, starting_height, 0.0),
+                        spawn_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH),
+                        spawn_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH),
+                    );
 
-                if hit.is_none() {
-                    let original_offset = ray - self.spawn_point;
-                    let normalized_offset= (original_offset - Vec3::new(0., starting_height, 0.)).normalize();
-                    let buffered_position = config::TRACK_WIDTH + config::TOWER_POSITION_BUFFER;
-                    let offset_with_buffer = normalized_offset * Vec3::new(buffered_position, 0., buffered_position);
-                    let spawn_point = self.spawn_point + offset_with_buffer;
+                    for ray in rays_to_cast {
+                        let hit = spatial_query.cast_ray(
+                            ray,
+                            -Vec3::Y,
+                            100.0,
+                            true,
+                            SpatialQueryFilter::default(),
+                        );
 
-                    world.spawn((
-                        Tower {
-                            target: self.spawn_point,
-                            action_cooldown:Timer::from_seconds(1.0, TimerMode::Repeating), 
-                        },
-                        ingame::CleanupMarker,
-                        util::scene_hook::HookedSceneBundle {
-                            scene: SceneBundle {
-                                scene,
-                                transform: Transform::from_translation(spawn_point),
-                                ..default()
-                            },
-                            hook: util::scene_hook::SceneHook::new(move |cmds, hook_data| {
-                                if let (Some(mesh), Some(name)) = (hook_data.mesh, hook_data.name) {
-                                    if name.contains("collide") {
-                                    }
+                        if hit.is_none() {
+                            let original_offset = ray - spawn_point;
+                            let normalized_offset= (original_offset - Vec3::new(0., starting_height, 0.)).normalize();
+                            let buffered_position = config::TRACK_WIDTH + config::TOWER_POSITION_BUFFER;
+                            let offset_with_buffer = normalized_offset * Vec3::new(buffered_position, 0., buffered_position);
+                            let target = spawn_point;
+                            let spawn_point = spawn_point + offset_with_buffer;
 
-                                    cmds.insert(
-                                    OutlineBundle {
-                                        outline: OutlineVolume {
-                                            visible: true,
-                                            width: 1.0,
-                                            colour: Color::BLACK,
-                                        },
-                                        mode: OutlineMode::RealVertex,
+                            println!("Removing cost");
+                            point.0 -= cost;
+                            world.spawn((
+                                Tower {
+                                    target,
+                                    action_cooldown:Timer::from_seconds(1.0, TimerMode::Repeating), 
+                                },
+                                ingame::CleanupMarker,
+                                util::scene_hook::HookedSceneBundle {
+                                    scene: SceneBundle {
+                                        scene,
+                                        transform: Transform::from_translation(spawn_point),
                                         ..default()
-                                    });
-                                }
-                            })
-                        }, 
-                    ));
-                    break;
+                                    },
+                                    hook: util::scene_hook::SceneHook::new(move |cmds, hook_data| {
+                                        if let (Some(mesh), Some(name)) = (hook_data.mesh, hook_data.name) {
+                                            if name.contains("collide") {
+                                            }
+
+                                            cmds.insert(
+                                            OutlineBundle {
+                                                outline: OutlineVolume {
+                                                    visible: true,
+                                                    width: 1.0,
+                                                    colour: Color::BLACK,
+                                                },
+                                                mode: OutlineMode::RealVertex,
+                                                ..default()
+                                            });
+                                        }
+                                    })
+                                }, 
+                            ));
+                            break;
+                        }
+                    }
                 }
             }
         }

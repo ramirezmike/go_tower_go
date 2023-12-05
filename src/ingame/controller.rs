@@ -1,7 +1,7 @@
 // Adapted from bevy_xpbd_3d 🙏🙏🙏🙏🙏  
 use bevy::{ecs::query::Has, prelude::*};
 use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
-use crate::ingame::config;
+use crate::{ingame::config, ingame::tower};
 
 pub struct CharacterControllerPlugin;
 
@@ -162,6 +162,7 @@ impl CommonControllerBundle {
 
 /// Sends [`MovementEvent`] events based on keyboard input.
 fn keyboard_input(
+    mut commands: Commands,
     mut movement_event_writer: EventWriter<MovementEvent>,
     keyboard_input: Res<Input<KeyCode>>,
     keyboard_player: Query<Entity, With<CharacterControllerKeyboard>>,
@@ -171,6 +172,13 @@ fn keyboard_input(
         let down = keyboard_input.any_pressed([KeyCode::J]);
         let left = keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]);
         let right = keyboard_input.any_pressed([KeyCode::D, KeyCode::Right]);
+
+        let right_trigger = keyboard_input.just_pressed(KeyCode::L);
+        let left_trigger = keyboard_input.just_pressed(KeyCode::H);
+
+        if right_trigger {
+            commands.add(tower::TowerSpawner { entity });
+        }
 
         if up {
             movement_event_writer.send(MovementEvent {

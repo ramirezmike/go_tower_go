@@ -1,4 +1,4 @@
-use crate::{assets::GameAssets, cleanup, ui, IngameState, ingame::{player, race, kart}};
+use crate::{assets::GameAssets, cleanup, ui, IngameState, ingame::{player, race, kart, points}};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -10,7 +10,7 @@ impl Plugin for InGameUIPlugin {
         .insert_resource(Time::from_seconds(UI_UPDATE))
         .add_systems(
             FixedUpdate,
-            (update_lap_counter, update_place).run_if(in_state(IngameState::InGame)),
+            (update_lap_counter, update_place, update_credits).run_if(in_state(IngameState::InGame)),
         )
         .add_systems(OnExit(IngameState::InGame), cleanup::<CleanupMarker>);
     }
@@ -24,6 +24,9 @@ struct LapMarker;
 
 #[derive(Component)]
 struct PlaceMarker;
+
+#[derive(Component)]
+struct CreditsMarker;
 
 fn setup(
     mut commands: Commands,
@@ -53,7 +56,7 @@ fn setup(
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(80.0),
-                height: Val::Percent(10.0),
+                height: Val::Percent(50.0),
                 position_type: PositionType::Relative,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,
@@ -86,8 +89,8 @@ fn setup(
                 height: Val::Auto,
                 position_type: PositionType::Relative,
                 justify_content: JustifyContent::FlexStart,
-                align_items: AlignItems::FlexStart,
-                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::FlexEnd,
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
             ..default()
@@ -129,7 +132,7 @@ fn setup(
             .spawn(NodeBundle {
                 style: Style {
                     width: Val::Percent(100.0),
-                    height: Val::Percent(10.0),
+                    height: Val::Percent(50.0),
                     position_type: PositionType::Relative,
                     justify_content: JustifyContent::FlexEnd,
                     align_items: AlignItems::FlexStart,
@@ -155,12 +158,48 @@ fn setup(
             PlaceMarker, // haha
         )).id();
 
+    let credits_node= 
+       commands 
+            .spawn(NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(50.0),
+                    position_type: PositionType::Relative,
+                    justify_content: JustifyContent::FlexEnd,
+                    align_items: AlignItems::FlexStart,
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                },
+                ..default()
+            }).id();
+
+    let credits=
+        commands.spawn((
+            TextBundle {
+                text: Text::from_section(
+                    "",
+                    TextStyle {
+                        font: game_assets.font.clone(),
+                        font_size: text_scaler.scale(ui::DEFAULT_FONT_SIZE),
+                        color: Color::WHITE,
+                    },
+                ),
+                ..default()
+            },
+            CreditsMarker,
+        )).id();
+
+    commands.entity(credits_node).add_child(credits);
     commands.entity(place_node).add_child(place);
+    commands.entity(top_row_right_side).add_child(credits_node);
+    commands.entity(top_row_right_side).add_child(place_node);
+
     commands.entity(lap_counter_node).add_child(lap_counter);
     commands.entity(top_row_left_side).add_child(lap_counter_node);
-    commands.entity(top_row_right_side).add_child(place_node);
+
     commands.entity(top_row).add_child(top_row_left_side);
     commands.entity(top_row).add_child(top_row_right_side);
+
     commands.entity(root_node).add_child(top_row);
 }
 
@@ -172,6 +211,17 @@ fn update_place(
     for mut text in &mut texts {
         for place in &player_place {
             text.sections[0].value = format!("Place: {} / {}", place.0, total_racers.iter().len());
+        }
+    }
+}
+
+fn update_credits(
+    player_credits: Query<&points::Points, With<player::Player>>,
+    mut texts: Query<&mut Text, With<CreditsMarker>>,
+) {
+    for mut text in &mut texts {
+        for credit in &player_credits {
+            text.sections[0].value = format!("{} credits", credit.0);
         }
     }
 }

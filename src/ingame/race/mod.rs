@@ -1,5 +1,5 @@
 use bevy::{prelude::*, ecs::system::{Command, SystemState}, };
-use crate::AppState;
+use crate::ingame::{points, race::placement_sensor::Place};
 use bevy_xpbd_3d::{math::*, prelude::*};
 
 pub mod placement_sensor;
@@ -64,19 +64,20 @@ pub struct WayPointHitHandler {
 impl Command for WayPointHitHandler {
     fn apply(self, world: &mut World) {
         let mut system_state: SystemState<(
-            Query<(&mut NextWayPoint, &mut LapCounter)>,
+            Query<(&mut NextWayPoint, &mut LapCounter, &mut points::Points, &Place)>,
             
         )> = SystemState::new(world);
 
         let (mut next_waypoints, ) = system_state.get_mut(world);
 
-        if let Ok((mut next_waypoint, mut lap_counter)) = next_waypoints.get_mut(self.entity) {
+        if let Ok((mut next_waypoint, mut lap_counter, mut points, place)) = next_waypoints.get_mut(self.entity) {
             next_waypoint.0 = match next_waypoint.0 {
                 WayPoints::Start => WayPoints::Quarter,
                 WayPoints::Quarter => WayPoints::Half,
                 WayPoints::Half => WayPoints::Finish,
                 WayPoints::Finish => {
                     lap_counter.0 += 1;
+                    points.0 += 9 - place.0;
 
                     WayPoints::Start
                 },

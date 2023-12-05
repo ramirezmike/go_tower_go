@@ -7,7 +7,7 @@ use std::f32::consts::TAU;
 use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 use crate::{assets, util, AppState, };
-use super::{bot, controller, player, config, race};
+use super::{bot, controller, player, config, race, points};
 
 #[derive(Component)]
 pub struct Kart;
@@ -55,6 +55,7 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
             },
             race::NextWayPoint(race::WayPoints::Quarter),
             race::LapCounter(1),
+            points::Points(8),
             self.cleanup_marker,
             controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.6), Vector::NEG_Y * 9.81 * 1.5)
         ));

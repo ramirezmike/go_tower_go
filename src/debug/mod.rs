@@ -61,7 +61,7 @@ fn debug(
     keys: ResMut<Input<KeyCode>>,
     mut exit: ResMut<Events<AppExit>>,
     mut cameras: Query<(Entity, Option<&mut FpsCameraController>), With<Camera>>,
-    player: Query<&Transform, With<Player>>,
+    player: Query<Entity, With<Player>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     if keys.just_pressed(KeyCode::Q) {
@@ -95,9 +95,8 @@ fn debug(
         }
     }
     if keys.just_pressed(KeyCode::T) {
-        let player = player.single();
         commands.add(TowerSpawner {
-            spawn_point: player.translation
+            entity: player.single()
         });
     }
 }

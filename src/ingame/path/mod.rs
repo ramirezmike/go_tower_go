@@ -6,11 +6,18 @@ use std::collections::HashMap;
 pub struct PathPlugin;
 impl Plugin for PathPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PathManager>();
+        app.init_resource::<PathManager>()
+            .add_systems(OnEnter(AppState::InGame), setup);
 
         #[cfg(feature = "gizmos")]
         app.add_systems(Update, display_path);
     }
+}
+
+fn setup(
+    mut path_manager: ResMut<PathManager>, 
+) {
+    path_manager.clear();
 }
 
 pub struct PathAdder {

@@ -14,6 +14,7 @@ mod collisions;
 mod path;
 mod race;
 mod finish_line;
+mod points;
 mod ui;
 pub mod player;
 pub mod tower;
