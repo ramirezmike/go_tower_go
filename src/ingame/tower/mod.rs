@@ -22,10 +22,13 @@ struct Tower {
     target: Vec3,
 }
 
+#[derive(Component, Default)]
+struct Cannon;
+
 fn tower_actions(
     mut commands: Commands,
-    mut towers: Query<(&mut Tower, &Transform), Without<kart::Kart>>,
-    karts: Query<(&kart::Kart, &Transform), Without<Tower>>,
+    mut towers: Query<(&mut Tower, &Transform)>,
+//    mut cannons: Query<&mut Transform, (With<Cannon>,Without<Tower>)>,
     time: Res<Time>,
     spatial_query: SpatialQuery,
 
@@ -35,6 +38,7 @@ fn tower_actions(
     for (mut tower, tower_transform) in &mut towers {
         if tower.action_cooldown.tick(time.delta()).just_finished() {
             let spawn_point = tower_transform.translation + Vec3::new(0., config::TOWER_HEIGHT, 0.);
+
             commands.add(bullet::BulletSpawner {
                 spawn_point,
                 direction: tower.target - spawn_point,
@@ -71,6 +75,44 @@ fn tower_actions(
     }
 }
 
+pub struct CannonSpawner {
+    spawn_point: Vec3,
+    target: Vec3
+}
+
+impl Command for CannonSpawner {
+    fn apply(self, world: &mut World) {
+        let mut system_state: SystemState<(
+            assets::loader::AssetsHandler,
+            Res<assets::GameAssets>,
+            Res<Assets<Gltf>>,
+        )> = SystemState::new(world);
+
+        let (mut assets_handler, game_assets, assets_gltf) = system_state.get_mut(world);
+
+        let material = assets_handler.materials.add(Color::rgb(0.5, 0.5, 0.5).into()).clone();
+        let mesh = game_assets.cannon.mesh.clone_weak(); 
+        world.spawn((
+            PbrBundle {
+                mesh,
+                material,
+                transform: Transform::from_translation(self.spawn_point + Vec3::new(0., config::TOWER_HEIGHT - 1., 0.))
+                            .looking_at(self.target - Vec3::new(0., config::TOWER_HEIGHT - 1., 0.), Vec3::Y),
+                ..default()
+            },
+            OutlineBundle {
+                outline: OutlineVolume {
+                    visible: true,
+                    width: 1.0,
+                    colour: Color::BLACK,
+                },
+                mode: OutlineMode::RealVertex,
+                ..default()
+            })
+        );
+    }
+}
+
 pub struct TowerSpawner {
     pub entity: Entity,
 }
@@ -88,8 +130,9 @@ impl Command for TowerSpawner {
 
         if let Ok((transform, mut point)) = points.get_mut(self.entity) {
             let spawn_point = transform.translation;
-            let cost = 4; 
+            let cost = 0; 
             if point.0 >= cost {
+                println!("Cost is good");
                 let gltf = assets_gltf.get(&game_assets.tower_01);
                 if let Some(gltf) = gltf {
                     let scene = gltf.scenes[0].clone();
@@ -121,6 +164,12 @@ impl Command for TowerSpawner {
 
                             println!("Removing cost");
                             point.0 -= cost;
+                            let cannon_spawner = CannonSpawner {
+                                spawn_point,
+                                target
+                            };
+                            cannon_spawner.apply(world);
+
                             world.spawn((
                                 Tower {
                                     target,
@@ -135,9 +184,6 @@ impl Command for TowerSpawner {
                                     },
                                     hook: util::scene_hook::SceneHook::new(move |cmds, hook_data| {
                                         if let (Some(mesh), Some(name)) = (hook_data.mesh, hook_data.name) {
-                                            if name.contains("collide") {
-                                            }
-
                                             cmds.insert(
                                             OutlineBundle {
                                                 outline: OutlineVolume {
@@ -153,6 +199,8 @@ impl Command for TowerSpawner {
                                 }, 
                             ));
                             break;
+                        } else {
+                            println!("nope");
                         }
                     }
                 }

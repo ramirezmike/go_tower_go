@@ -73,10 +73,8 @@ fn debug(
     if keys.just_pressed(KeyCode::C) {
         for (camera, maybe_fps) in &mut cameras {
             match maybe_fps {
-                Some(_) => {
-                    commands.entity(camera).remove::<FpsCameraController>()
-                    .remove::<Smoother>()
-                    .remove::<LookTransform>();
+                Some(mut fps) => {
+                    fps.enabled = !fps.enabled;
                 },
                 None => { 
                     commands.entity(camera)
@@ -90,7 +88,20 @@ fn debug(
                                     Vec3::new(0., 0., 0.),
                                     Vec3::Y,
                                 ));
-                }
+                },
+                _ => ()
+            };
+        }
+    }
+    if keys.just_pressed(KeyCode::V) {
+        for (camera, maybe_fps) in &mut cameras {
+            match maybe_fps {
+                Some(_) => {
+                    commands.entity(camera).remove::<FpsCameraController>()
+                    .remove::<Smoother>()
+                    .remove::<LookTransform>();
+                },
+                _ => ()
             };
         }
     }

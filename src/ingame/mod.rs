@@ -44,6 +44,11 @@ impl Command for IngameLoader {
 
         assets_handler.add_glb(&mut game_assets.track, "models/track.glb");
         assets_handler.add_glb(&mut game_assets.tower_01, "models/tower.glb");
+
+        assets_handler.add_mesh(
+            &mut game_assets.cannon.mesh,
+            "models/cannon.gltf#Mesh0/Primitive0",
+        );
     }
 }
 

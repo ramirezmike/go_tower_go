@@ -28,6 +28,7 @@ pub struct GameAssets {
     pub car: Handle<Gltf>,
     pub track: Handle<Gltf>,
     pub tower_01: Handle<Gltf>,
+    pub cannon: GameMesh,
     pub bevy_icon: GameTexture,
 
     pub drive_animation: Handle<AnimationClip>,

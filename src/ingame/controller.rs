@@ -177,6 +177,7 @@ fn keyboard_input(
         let left_trigger = keyboard_input.just_pressed(KeyCode::H);
 
         if right_trigger {
+            println!("PRESSED L");
             commands.add(tower::TowerSpawner { entity });
         }
 
