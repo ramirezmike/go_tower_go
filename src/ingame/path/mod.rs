@@ -87,6 +87,16 @@ impl PathManager {
         }
     }
 
+    pub fn get_previous(&self, index: usize) -> Option<usize> {
+        if let Some(previous) = index.checked_sub(1) {
+            Some(previous)
+        } else if let Some(previous) = self.points.len().checked_sub(1) {
+            Some(previous)
+        } else {
+            None
+        }
+    }
+
     /// Assumes index is valid and will panic otherwise
     pub fn get(&self, index: usize) -> Vec3 {
         self.points[&index]

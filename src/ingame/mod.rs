@@ -2,7 +2,7 @@ use bevy::{prelude::*, ecs::system::{Command, SystemState}, gltf::Gltf, };
 use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_turborand::prelude::*;
 use std::f32::consts::TAU;
-use crate::{assets, AppState, util, };
+use crate::{assets, AppState, util, IngameState, cleanup};
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 
 mod bot;
@@ -10,7 +10,11 @@ mod bullet;
 mod camera; 
 mod kart;
 mod controller;
+mod collisions;
 mod path;
+mod race;
+mod finish_line;
+mod ui;
 pub mod player;
 pub mod tower;
 pub mod config;
@@ -18,7 +22,8 @@ pub mod config;
 pub struct InGamePlugin;
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin, tower::TowerPlugin, bullet::BulletPlugin, bot::BotPlugin, path::PathPlugin,))
+        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin, tower::TowerPlugin, bullet::BulletPlugin, bot::BotPlugin, path::PathPlugin, finish_line::FinishLinePlugin, race::RacePlugin, collisions::CollisionsPlugin, ui::InGameUIPlugin,))
+            .add_systems(OnExit(AppState::InGame), cleanup::<CleanupMarker>)
             .add_systems(OnEnter(AppState::InGame), setup);
 
         if cfg!(feature = "colliders") {
@@ -50,9 +55,9 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     game_assets: Res<assets::GameAssets>,
     assets_gltf: Res<Assets<Gltf>>,
+    mut next_ingame_state: ResMut<NextState<IngameState>>,
 ) {
     if let Some(gltf) = assets_gltf.get(&game_assets.track) {
-        let mut player_spawned = false;
         commands.spawn((
             util::scene_hook::HookedSceneBundle {
                 scene: SceneBundle {
@@ -92,15 +97,35 @@ fn setup(
 
                         if name.contains("kart_spawner") {
                             if let (Some(global_transform), Some(aabb)) = (hook_data.global_transform, hook_data.aabb) {
-                                cmds.commands().add(kart::KartSpawner { global_transform: *global_transform, aabb: *aabb });
+                                cmds.commands().add(kart::KartSpawner { global_transform: *global_transform, aabb: *aabb, cleanup_marker: CleanupMarker });
                             }
 
                             let entity = cmds.id();
                             cmds.commands().entity(entity).despawn_recursive();
                         }
+
+                        if name.contains("waypoint") {
+                            let entity = cmds.id();
+                            cmds.commands().add(
+                                race::WayPointSpawner {
+                                    entity,
+                                    name: name.to_string(),
+                                    mesh: mesh.clone(),
+                                }
+                            );
+                        }
+
+                        if name.contains("place_sensor") {
+                            cmds.insert(
+                                (race::placement_sensor::PlaceSensor::new(name), 
+                                Visibility::Hidden,
+                                Collider::trimesh_from_mesh(mesh).unwrap(), 
+                            ));
+                        }
                     }
                 })
             }, 
+            CleanupMarker,
         ));
     }
 
@@ -126,4 +151,5 @@ fn setup(
     ));
 
     commands.add(camera::SpawnCamera { cleanup_marker: CleanupMarker });
+    next_ingame_state.set(IngameState::InGame);
 }

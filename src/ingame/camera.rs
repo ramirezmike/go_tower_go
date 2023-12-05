@@ -30,8 +30,12 @@ fn follow_player(
 ) {
     for mut c_transform in &mut cameras {
         for (player_transform, linear_velocity) in &players {
-
-            c_transform.translation = player_transform.translation + (player_transform.back() * 10.0) + Vec3::new(0., 2.7, 0.);
+            let new_translation = player_transform.translation + (player_transform.back() * 10.0) + Vec3::new(0., 2.7, 0.);
+            let diff = new_translation - c_transform.translation;
+            // try to slow down Y changes
+            let y_speed = 2.;
+            c_transform.translation += (diff * Vec3::new(1., 0., 1.)) 
+                + Vec3::new(0., diff.y * time.delta_seconds() * y_speed, 0.);
             let between_velocity_and_facing = linear_velocity.0.lerp(player_transform.translation + (player_transform.forward() * 4.0), 0.96);
             let look_at = c_transform.looking_at(between_velocity_and_facing + Vec3::new(0., 0.8, 0.), Vec3::Y);
             c_transform.rotation = c_transform.rotation.slerp(look_at.rotation, 1. -time.delta_seconds());

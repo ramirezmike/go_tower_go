@@ -13,12 +13,13 @@ impl Plugin for BulletPlugin {
     }
 }
 
-pub struct BulletSpawner {
+pub struct BulletSpawner<C: Component + Clone>  {
     pub spawn_point: Vec3,
     pub direction: Vec3,
     pub speed: f32,
+    pub cleanup_marker: C
 }
-impl Command for BulletSpawner {
+impl<C: Component + Clone>  Command for BulletSpawner<C> {
     fn apply(self, world: &mut World) {
         let mut system_state: SystemState<(
             assets::loader::AssetsHandler,
@@ -51,6 +52,7 @@ impl Command for BulletSpawner {
                 direction: self.direction,
                 speed: self.speed,
             },
+            self.cleanup_marker,
         ));
     }
 }

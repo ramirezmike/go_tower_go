@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::ecs::system::{Command, SystemState};
 use bevy::gltf::Gltf;
-use crate::{assets, util, AppState, };
+use crate::{assets, util, AppState, ingame, };
 use super::{kart, bullet, config};
 use bevy_xpbd_3d::prelude::*;
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
@@ -39,6 +39,7 @@ fn tower_actions(
                 spawn_point,
                 direction: tower.target - spawn_point,
                 speed: 2.0,
+                cleanup_marker: ingame::CleanupMarker,
             });
         } 
 
@@ -116,6 +117,7 @@ impl Command for TowerSpawner {
                             target: self.spawn_point,
                             action_cooldown:Timer::from_seconds(1.0, TimerMode::Repeating), 
                         },
+                        ingame::CleanupMarker,
                         util::scene_hook::HookedSceneBundle {
                             scene: SceneBundle {
                                 scene,

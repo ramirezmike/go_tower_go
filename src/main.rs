@@ -6,6 +6,7 @@ use bevy_mod_outline::*;
 mod assets;
 mod ingame;
 mod util;
+mod ui;
 
 #[cfg(feature = "debug")]
 mod debug;
@@ -14,8 +15,12 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .add_plugins((PhysicsPlugins::default(), RngPlugin::default(), OutlinePlugin))
-        .add_plugins((assets::AssetsPlugin, util::UtilPlugin, ingame::InGamePlugin, ))
+        .add_plugins((assets::AssetsPlugin, util::UtilPlugin, ingame::InGamePlugin, 
+            ui::text_size::TextSizePlugin,
+            ui::follow_text::FollowTextPlugin,
+        ))
         .add_systems(Update, bootstrap.run_if(in_state(AppState::Initial)))
+        .add_state::<IngameState>()
         .add_state::<AppState>();
 
     #[cfg(feature = "debug")]
@@ -44,6 +49,13 @@ pub enum AppState {
     InGame,
 }
 
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash, States)]
+pub enum IngameState {
+    InGame,
+    #[default]
+    Disabled,
+}
+
 use assets::command_ext::*;
 fn bootstrap(mut commands: Commands) {
     #[cfg(feature = "debug")]
@@ -53,4 +65,10 @@ fn bootstrap(mut commands: Commands) {
 
     #[cfg(not(feature = "debug"))]
     commands.load_state(AppState::InGame);
+}
+
+pub fn cleanup<T: Component>(mut commands: Commands, entities: Query<Entity, With<T>>) {
+    for entity in entities.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
 }

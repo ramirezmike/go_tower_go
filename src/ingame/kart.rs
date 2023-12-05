@@ -7,16 +7,17 @@ use std::f32::consts::TAU;
 use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 use crate::{assets, util, AppState, };
-use super::{bot, controller, player, config};
+use super::{bot, controller, player, config, race};
 
 #[derive(Component)]
 pub struct Kart;
 
-pub struct KartSpawner {
+pub struct KartSpawner<C: Component + Clone> {
     pub global_transform: GlobalTransform,
     pub aabb: Aabb,
+    pub cleanup_marker: C
 }
-impl Command for KartSpawner {
+impl<C: Component + Clone> Command for KartSpawner<C> {
     fn apply(self, world: &mut World) {
         let mut system_state: SystemState<(
             assets::loader::AssetsHandler,
@@ -52,7 +53,10 @@ impl Command for KartSpawner {
                 mode: OutlineMode::RealVertex,
                 ..default()
             },
-            controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.4), Vector::NEG_Y * 9.81 * 2.0)
+            race::NextWayPoint(race::WayPoints::Quarter),
+            race::LapCounter(1),
+            self.cleanup_marker,
+            controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.6), Vector::NEG_Y * 9.81 * 1.5)
         ));
 
         if count_of_spawned_players >= config::NUMBER_OF_PLAYERS {
