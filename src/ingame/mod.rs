@@ -14,6 +14,7 @@ mod collisions;
 mod path;
 mod race;
 mod finish_line;
+mod game_settings;
 mod points;
 mod ui;
 pub mod player;
@@ -23,7 +24,8 @@ pub mod config;
 pub struct InGamePlugin;
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin, tower::TowerPlugin, bullet::BulletPlugin, bot::BotPlugin, path::PathPlugin, finish_line::FinishLinePlugin, race::RacePlugin, collisions::CollisionsPlugin, ui::InGameUIPlugin,))
+        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin, tower::TowerPlugin, bullet::BulletPlugin, bot::BotPlugin, path::PathPlugin, finish_line::FinishLinePlugin, race::RacePlugin, collisions::CollisionsPlugin, ui::InGameUIPlugin, kart::KartPlugin,))
+            .init_resource::<game_settings::GameState>()
             .add_systems(OnExit(AppState::InGame), cleanup::<CleanupMarker>)
             .add_systems(OnEnter(AppState::InGame), setup);
 
@@ -63,7 +65,9 @@ fn setup(
     game_assets: Res<assets::GameAssets>,
     assets_gltf: Res<Assets<Gltf>>,
     mut next_ingame_state: ResMut<NextState<IngameState>>,
+    mut game_state: ResMut<game_settings::GameState>,
 ) {
+    *game_state = game_settings::GameState::default();
     if let Some(gltf) = assets_gltf.get(&game_assets.track) {
         commands.spawn((
             util::scene_hook::HookedSceneBundle {

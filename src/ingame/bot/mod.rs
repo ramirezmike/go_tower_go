@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use crate::{AppState, };
-use super::{controller, path};
-use bevy_xpbd_3d::prelude::*;
 use bevy_turborand::prelude::*;
+use super::{controller, path, race, tower};
+use bevy_xpbd_3d::prelude::*;
 
 #[cfg(feature = "gizmos")]
 use bevy::gizmos::gizmos::Gizmos;
@@ -10,7 +10,11 @@ use bevy::gizmos::gizmos::Gizmos;
 pub struct BotPlugin;
 impl Plugin for BotPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (find_target, move_bots).chain().run_if(in_state(AppState::InGame)));
+        app.add_systems(Update, (find_target, move_bots).chain().run_if(in_state(AppState::InGame)))
+            .add_systems(
+                FixedUpdate,
+                (place_towers).run_if(in_state(AppState::InGame)),
+            );
     }
 }
 
@@ -25,6 +29,78 @@ impl Bot {
         Bot {
             random,
             ..default()
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct BotBundle {
+    bot: Bot,
+    tower_placer: TowerPlacer, 
+}
+
+impl BotBundle {
+    pub fn new(normalized_rand: f32, positive_rand: f32) -> Self {
+        BotBundle {
+            bot: Bot::new(normalized_rand),
+            tower_placer: TowerPlacer::new(positive_rand)
+        }
+    }
+}
+
+#[derive(Component, Default)]
+pub struct TowerPlacer {
+    min_percentage_into_track: f32,
+}
+
+impl TowerPlacer {
+    pub fn new(random: f32) -> Self {
+        TowerPlacer {
+            min_percentage_into_track: random,
+            ..default()
+        }
+    }
+}
+
+fn place_towers(
+    mut commands: Commands,
+    mut bots: Query<(Entity, &Bot, &mut TowerPlacer)>,
+    waypoints: Query<&race::WayPoint>,
+    mut global_rng: ResMut<GlobalRng>,
+    path_manager: Res<path::PathManager>,
+) {
+    for (entity, b, mut tower_placer) in &mut bots {
+        if let Some(bot_index) = b.target {
+            let waypoints =
+            waypoints.iter()
+                     .fold((None, None), |mut acc, e| {
+                         if e.0 == race::WayPoints::Start && e.1.is_some() {
+                             acc.0 = e.1;
+                         }
+                         if e.0 == race::WayPoints::Finish && e.1.is_some() {
+                             acc.1 = e.1;
+                         }
+
+                         acc
+                     });
+            if let (Some(start_index), Some(mut finish_index)) = waypoints {
+
+                if finish_index == 0 {
+                    finish_index = path_manager.get_previous(finish_index).unwrap_or(20); // just picking something
+                }
+
+                if bot_index < start_index || bot_index > finish_index {
+                    continue;
+                }
+
+                if (bot_index - start_index) as f32 / finish_index as f32 > tower_placer.min_percentage_into_track {
+                    commands.add(tower::TowerSpawner {
+                        entity
+                    });
+
+                    tower_placer.min_percentage_into_track = global_rng.f32();
+                }
+            }
         }
     }
 }

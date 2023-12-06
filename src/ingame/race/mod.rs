@@ -1,20 +1,35 @@
 use bevy::{prelude::*, ecs::system::{Command, SystemState}, };
-use crate::ingame::{points, race::placement_sensor::Place};
+use crate::ingame::{path, points, race::placement_sensor::Place};
+use crate::AppState;
 use bevy_xpbd_3d::{math::*, prelude::*};
+use bevy::render::primitives::Aabb;
 
 pub mod placement_sensor;
 
 pub struct RacePlugin;
 impl Plugin for RacePlugin {
     fn build(&self, app: &mut App) {
-        //app.add_systems(Update, detect_finish_line.run_if(in_state(AppState::InGame)));
         app.add_plugins(placement_sensor::PlacementSensorPlugin);
+        app.add_systems(Update, populate_waypoint_indices.run_if(in_state(AppState::InGame)));
+    }
+}
+
+fn populate_waypoint_indices(
+    mut waypoints: Query<(&mut WayPoint, &GlobalTransform, &Aabb)>,
+    path_manager: Res<path::PathManager>,
+) {
+    for (mut w, global_transform, aabb) in &mut waypoints {
+        if w.1.is_none() {
+            let matrix = global_transform.compute_matrix();
+            let spawn_point = matrix.transform_point3(aabb.center.into());
+            w.1 = path_manager.get_closest_index(spawn_point);
+        }
     }
 }
 
 
 #[derive(Component)]
-pub struct WayPoint(pub WayPoints);
+pub struct WayPoint(pub WayPoints, pub Option<usize>);
 
 #[derive(Debug, PartialEq)]
 pub enum WayPoints {
@@ -49,7 +64,7 @@ impl Command for WayPointSpawner {
         if let Some(waypoints) = waypoints {
             world.entity_mut(self.entity)
                 .insert((
-                    WayPoint(waypoints),
+                    WayPoint(waypoints, None),
                     Collider::trimesh_from_mesh(&self.mesh).unwrap(), 
                     Visibility::Hidden,
                 ));

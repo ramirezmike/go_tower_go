@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::ecs::system::{Command, SystemState};
 use bevy::gltf::Gltf;
 use crate::{assets, util, AppState, ingame, };
-use super::{kart, bullet, config, points};
+use super::{kart, bullet, config, points,};
 use bevy_xpbd_3d::prelude::*;
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 
@@ -20,6 +20,7 @@ impl Plugin for TowerPlugin {
 struct Tower {
     action_cooldown: Timer,
     target: Vec3,
+    color: Color,
 }
 
 #[derive(Component, Default)]
@@ -42,6 +43,7 @@ fn tower_actions(
             commands.add(bullet::BulletSpawner {
                 spawn_point,
                 direction: tower.target - spawn_point,
+                color: tower.color,
                 speed: 2.0,
                 cleanup_marker: ingame::CleanupMarker,
             });
@@ -124,16 +126,16 @@ impl Command for TowerSpawner {
             Res<assets::GameAssets>,
             Res<Assets<Gltf>>,
             SpatialQuery,
-            Query<(&Transform, &mut points::Points)>,
+            Query<(&Transform, &kart::Kart, &mut points::Points)>,
         )> = SystemState::new(world);
 
         let (mut assets_handler, game_assets, assets_gltf, spatial_query, mut points) = system_state.get_mut(world);
 
-        if let Ok((transform, mut point)) = points.get_mut(self.entity) {
+        if let Ok((transform, kart, mut point)) = points.get_mut(self.entity) {
             let spawn_point = transform.translation;
-            let cost = 0; 
+            let cost = 4; 
             if point.0 >= cost {
-                println!("Cost is good");
+                let color = kart.0;
                 let gltf = assets_gltf.get(&game_assets.tower_01);
                 if let Some(gltf) = gltf {
                     let scene = gltf.scenes[0].clone();
@@ -169,7 +171,6 @@ impl Command for TowerSpawner {
                             let target = spawn_point;
                             let spawn_point = spawn_point + offset_with_buffer;
 
-                            println!("Removing cost");
                             point.0 -= cost;
                             let cannon_spawner = CannonSpawner {
                                 spawn_point,
@@ -180,6 +181,7 @@ impl Command for TowerSpawner {
                             world.spawn((
                                 Tower {
                                     target,
+                                    color,
                                     action_cooldown:Timer::from_seconds(1.0, TimerMode::Repeating), 
                                 },
                                 ingame::CleanupMarker,
