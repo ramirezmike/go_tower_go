@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 pub mod scene_hook;
+pub mod screen_shake;
 
 pub struct UtilPlugin;
 impl Plugin for UtilPlugin {

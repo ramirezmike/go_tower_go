@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::ecs::system::{Command, SystemState};
 use bevy::gltf::Gltf;
 use crate::{assets, util, AppState, ingame, };
-use super::{kart, bullet, config, points,};
+use super::{kart, bullet, config, points, common,};
 use bevy_xpbd_3d::prelude::*;
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 
@@ -23,22 +23,30 @@ struct Tower {
     color: Color,
 }
 
-#[derive(Component, Default)]
-struct Cannon;
+#[derive(Component)]
+struct Cannon {
+    parent: Entity,
+}
 
 fn tower_actions(
     mut commands: Commands,
-    mut towers: Query<(&mut Tower, &Transform)>,
-//    mut cannons: Query<&mut Transform, (With<Cannon>,Without<Tower>)>,
+    mut towers: Query<(Entity, &mut Tower, &Transform)>,
+    cannons: Query<(Entity, &Cannon)>,
     time: Res<Time>,
     spatial_query: SpatialQuery,
 
     #[cfg(feature = "gizmos")]
     mut gizmos: Gizmos,
 ) {
-    for (mut tower, tower_transform) in &mut towers {
+    for (tower_entity, mut tower, tower_transform) in &mut towers {
         if tower.action_cooldown.tick(time.delta()).just_finished() {
             let spawn_point = tower_transform.translation + Vec3::new(0., config::TOWER_HEIGHT, 0.);
+            for (cannon_entity, cannon) in &cannons {
+                if cannon.parent == tower_entity {
+                    commands.entity(cannon_entity)
+                        .insert(common::scaler::Scaler::new(Vec3::splat(1.2), 0.1, 0.4));
+                }
+            }
 
             commands.add(bullet::BulletSpawner {
                 spawn_point,
@@ -78,6 +86,7 @@ fn tower_actions(
 }
 
 pub struct CannonSpawner {
+    parent: Entity,
     spawn_point: Vec3,
     target: Vec3
 }
@@ -103,6 +112,9 @@ impl Command for CannonSpawner {
                 ..default()
             },
             ingame::CleanupMarker,
+            Cannon {
+                parent: self.parent,
+            },
             OutlineBundle {
                 outline: OutlineVolume {
                     visible: true,
@@ -172,17 +184,12 @@ impl Command for TowerSpawner {
                             let spawn_point = spawn_point + offset_with_buffer;
 
                             point.0 -= cost;
-                            let cannon_spawner = CannonSpawner {
-                                spawn_point,
-                                target
-                            };
-                            cannon_spawner.apply(world);
 
-                            world.spawn((
+                            let tower_id = world.spawn((
                                 Tower {
                                     target,
                                     color,
-                                    action_cooldown:Timer::from_seconds(1.0, TimerMode::Repeating), 
+                                    action_cooldown:Timer::from_seconds(0.5, TimerMode::Repeating), 
                                 },
                                 ingame::CleanupMarker,
                                 util::scene_hook::HookedSceneBundle {
@@ -206,7 +213,14 @@ impl Command for TowerSpawner {
                                         }
                                     })
                                 }, 
-                            ));
+                            )).id();
+
+                            let cannon_spawner = CannonSpawner {
+                                parent: tower_id,
+                                spawn_point,
+                                target
+                            };
+                            cannon_spawner.apply(world);
                             break;
                         } 
                     }

@@ -84,7 +84,8 @@ fn debug(
                                         translate_sensitivity: 20.0,
                                         ..default()
                                     },
-                                    Vec3::new(-31.0, 244.0, 47.0),
+                                    //Vec3::new(-31.0, 244.0, 47.0),
+                                    Vec3::new(0.0, 5.0, 0.0),
                                     Vec3::new(-31., 0., 47.),
                                     Vec3::Y,
                                 ));

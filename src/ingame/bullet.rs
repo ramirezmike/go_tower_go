@@ -34,8 +34,8 @@ pub fn animate_hit(
     time: Res<Time>,
 ) {
     for (hit, mut transform, material, parent) in hits.iter_mut() {
-        transform.rotate(Quat::from_rotation_x(time.delta_seconds()));
-        transform.rotate(Quat::from_rotation_y(time.delta_seconds()));
+//      transform.rotate(Quat::from_rotation_x(time.delta_seconds()));
+//      transform.rotate(Quat::from_rotation_y(time.delta_seconds()));
         transform.scale *= 1.0 - (time.delta_seconds() * config::HIT_SHRINK_SPEED);
 
         let target = transform
@@ -83,6 +83,8 @@ pub fn handle_create_hit_event(
             let move_toward_z = global_rng.f32_normalized();
             let move_toward = Vec3::new(move_toward_x, move_toward_y, move_toward_z);
 
+            let mut material: StandardMaterial = event.color.into();
+            material.alpha_mode = AlphaMode::Blend;
             commands
                 .spawn(PbrBundle {
                     transform,
@@ -94,7 +96,7 @@ pub fn handle_create_hit_event(
                             mesh: meshes.add(Mesh::from(shape::Cube {
                                 size: 0.5,
                             })),
-                            material: materials.add(event.color.into()),
+                            material: materials.add(material),
                             transform: {
                                 let mut t = Transform::from_xyz(inner_mesh_x, 0.1, inner_mesh_z);
                                 t.rotate(Quat::from_rotation_x(inner_mesh_z));

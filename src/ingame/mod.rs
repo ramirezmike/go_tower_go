@@ -8,6 +8,7 @@ use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 mod bot;
 mod bullet;
 mod camera; 
+mod common;
 mod kart;
 mod controller;
 mod collisions;
@@ -16,6 +17,7 @@ mod race;
 mod finish_line;
 mod game_settings;
 mod points;
+mod particle;
 mod ui;
 pub mod player;
 pub mod tower;
@@ -24,7 +26,7 @@ pub mod config;
 pub struct InGamePlugin;
 impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin, tower::TowerPlugin, bullet::BulletPlugin, bot::BotPlugin, path::PathPlugin, finish_line::FinishLinePlugin, race::RacePlugin, collisions::CollisionsPlugin, ui::InGameUIPlugin, kart::KartPlugin,))
+        app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin, tower::TowerPlugin, bullet::BulletPlugin, bot::BotPlugin, path::PathPlugin, finish_line::FinishLinePlugin, race::RacePlugin, collisions::CollisionsPlugin, ui::InGameUIPlugin, kart::KartPlugin, particle::ParticlePlugin, common::CommonPlugin,))
             .init_resource::<game_settings::GameState>()
             .add_systems(OnExit(AppState::InGame), cleanup::<CleanupMarker>)
             .add_systems(OnEnter(AppState::InGame), setup);
@@ -47,6 +49,11 @@ impl Command for IngameLoader {
         assets_handler.add_glb(&mut game_assets.track, "models/track.glb");
         assets_handler.add_glb(&mut game_assets.car, "models/tower_car.glb");
         assets_handler.add_glb(&mut game_assets.tower_01, "models/tower.glb");
+
+        assets_handler.add_material(&mut game_assets.smoke_image, "textures/smoke.png", true);
+
+        assets_handler.add_standard_mesh(&mut game_assets.smoke, Mesh::from(shape::Plane { size: 0.5, subdivisions: 0 }));
+
 
         assets_handler.add_mesh(
             &mut game_assets.cannon.mesh,

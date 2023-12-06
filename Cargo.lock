@@ -519,6 +519,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_camera_shake"
+version = "2.0.0"
+source = "git+https://github.com/ramirezmike/bevy_camera_shake?rev=a508bbce3362ccc0a355fde81197c593e3f7d232#a508bbce3362ccc0a355fde81197c593e3f7d232"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_core"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2136,6 +2144,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
+ "bevy_camera_shake",
  "bevy_kira_audio",
  "bevy_mod_outline",
  "bevy_turborand",

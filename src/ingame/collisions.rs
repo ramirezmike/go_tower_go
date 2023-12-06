@@ -1,7 +1,7 @@
 use bevy::{prelude::*, ecs::system::{Command, SystemState}, };
-use crate::AppState;
+use crate::{AppState, util};
 use bevy_xpbd_3d::{math::*, prelude::*};
-use super::{race, bullet, kart};
+use super::{race, bullet, kart, player, common};
 
 pub struct CollisionsPlugin;
 impl Plugin for CollisionsPlugin {
@@ -15,10 +15,11 @@ fn handle_collisions(
     mut collision_event_reader: EventReader<Collision>,
     mut hit_event_writer: EventWriter<kart::HitEvent>,
     mut bullet_hit_event_writer: EventWriter<bullet::CreateHitEvent>,
+    mut health_hit_event_writer: EventWriter<common::health::HealthHitEvent>,
     waypoints: Query<(Entity, &race::WayPoint)>,
     waypoint_trackers: Query<(Entity, &race::NextWayPoint)>,
     bullets: Query<(Entity, &bullet::Bullet, &Transform)>,
-    karts: Query<(Entity, &kart::Kart)>,
+    karts: Query<(Entity, &kart::Kart, Has<player::Player>)>,
 ) {
     for Collision(contacts) in collision_event_reader.read() {
         match (waypoint_trackers.get(contacts.entity1), waypoints.get(contacts.entity2),
@@ -44,10 +45,18 @@ fn handle_collisions(
                     entity: kart.0,
                     direction: bullet.1.direction
                 });
+                health_hit_event_writer.send(common::health::HealthHitEvent {
+                    entity: kart.0,
+                    hit_points: 1
+                });
                 bullet_hit_event_writer.send(bullet::CreateHitEvent {
                     position: bullet.2.translation,
                     color: bullet.1.color,
                 });
+
+                if kart.2 { // is player
+                    commands.add(util::screen_shake::CameraShake::default());
+                }
             }
 
             _ => ()

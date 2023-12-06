@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use bevy_turborand::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 use bevy_mod_outline::*;
+use bevy_camera_shake::CameraShakePlugin;
+use bevy::asset::AssetMetaCheck;
 
 mod assets;
 mod ingame;
@@ -13,8 +15,29 @@ mod debug;
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
-        .add_plugins((PhysicsPlugins::default(), RngPlugin::default(), OutlinePlugin))
+    app.insert_resource(AssetMetaCheck::Never);
+
+    #[cfg(not(feature = "web"))]
+    {
+       app.add_plugins(DefaultPlugins);
+    }
+
+    #[cfg(feature = "web")]
+    {
+        app.add_plugins(DefaultPlugins.set(AssetPlugin {
+          ..default()
+        })
+         .set(WindowPlugin {
+          primary_window: Some(Window {
+            fit_canvas_to_parent: true,
+            ..default()
+          }),
+          ..default()
+        }));
+    }
+
+    app
+        .add_plugins((PhysicsPlugins::default(), RngPlugin::default(), OutlinePlugin, CameraShakePlugin,))
         .add_plugins((assets::AssetsPlugin, util::UtilPlugin, ingame::InGamePlugin, 
             ui::text_size::TextSizePlugin,
             ui::follow_text::FollowTextPlugin,
@@ -27,6 +50,7 @@ fn main() {
     {
         app.add_plugins(debug::DebugPlugin);
     }
+
 
     #[cfg(feature = "inspect")]
     {

@@ -9,6 +9,7 @@ camera = []
 inspect = []
 colliders = []
 gizmos = []
+no_bots = []
 web = []
 
 [profile.dev]
@@ -25,3 +26,4 @@ bevy_turborand = "0.7.0"
 bevy_kira_audio = { version = "0.18.0", features = ["wav"]}
 smooth-bevy-cameras = { git = "https://github.com/ramirezmike/smooth-bevy-cameras", branch = "main" }
 bevy_mod_outline = { git = "https://github.com/ramirezmike/bevy_mod_outline", branch = "linux_wasm" }
+bevy_camera_shake = { git = "https://github.com/ramirezmike/bevy_camera_shake?rev=a508bbce3362ccc0a355fde81197c593e3f7d232" }

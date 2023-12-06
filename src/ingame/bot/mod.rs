@@ -149,13 +149,11 @@ fn move_bots(
             let dot = transform.right().dot(difference);
 
             if dot < -0. {
-                //println!("Dot is {:?}, turning left", dot);
                 movement_event_writer.send(controller::MovementEvent {
                     entity,
                     action: controller::MovementAction::Turn(0.1 * dot.abs() + (bot.random / 2.)),
                 });
             } else if dot > 0. {
-                //println!("Dot is {:?}, turning right", dot);
                 movement_event_writer.send(controller::MovementEvent {
                     entity,
                     action: controller::MovementAction::Turn(-0.1 * dot.abs() + (bot.random / 2.)),

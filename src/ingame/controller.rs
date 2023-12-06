@@ -53,6 +53,10 @@ pub struct CharacterControllerKeyboard;
 #[derive(Component)]
 #[component(storage = "SparseSet")]
 pub struct Grounded;
+
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+pub struct Braking;
 /// The acceleration used for character movement.
 #[derive(Component)]
 pub struct MovementAcceleration(pub Scalar);
@@ -168,16 +172,15 @@ fn keyboard_input(
     keyboard_player: Query<Entity, With<CharacterControllerKeyboard>>,
 ) {
     for entity in &keyboard_player {
-        let up = keyboard_input.any_pressed([KeyCode::K]);
-        let down = keyboard_input.any_pressed([KeyCode::J]);
+        let up = keyboard_input.any_pressed([KeyCode::K, KeyCode::Up]);
+        let down = keyboard_input.any_pressed([KeyCode::J, KeyCode::Down]);
         let left = keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]);
         let right = keyboard_input.any_pressed([KeyCode::D, KeyCode::Right]);
 
-        let right_trigger = keyboard_input.just_pressed(KeyCode::L);
-        let left_trigger = keyboard_input.just_pressed(KeyCode::H);
+        let right_trigger = keyboard_input.just_pressed(KeyCode::L) || keyboard_input.just_pressed(KeyCode::Right);
+        let left_trigger = keyboard_input.just_pressed(KeyCode::H) || keyboard_input.just_pressed(KeyCode::Left);
 
         if right_trigger {
-            println!("PRESSED L");
             commands.add(tower::TowerSpawner { entity });
         }
 
@@ -260,9 +263,10 @@ fn update_grounded(
 
 /// Responds to [`MovementEvent`] events and moves character controllers accordingly.
 fn movement(
+    mut commands: Commands,
     time: Res<Time>,
     mut movement_event_reader: EventReader<MovementEvent>,
-    mut controllers: Query<(
+    mut controllers: Query<(Entity,
         &MovementAcceleration,
         &MovementDeceleration,
         &RotationDampingFactor,
@@ -274,14 +278,16 @@ fn movement(
     let delta_time = time.delta_seconds();
 
     for event in movement_event_reader.read() {
-        if let Ok((movement_acceleration, movement_deceleration, rotation_damping, mut linear_velocity, mut transform, is_grounded)) = controllers.get_mut(event.entity) {
+        if let Ok((entity, movement_acceleration, movement_deceleration, rotation_damping, mut linear_velocity, mut transform, is_grounded)) = controllers.get_mut(event.entity) {
             match event.action {
                 MovementAction::Gas => {
+                    commands.entity(entity).remove::<Braking>();
                     let direction = transform.forward(); 
                     linear_velocity.x += direction.x * movement_acceleration.0 * delta_time;
                     linear_velocity.z += direction.z * movement_acceleration.0 * delta_time;
                 },
                 MovementAction::Brake => {
+                    commands.entity(entity).insert(Braking);
                     let direction = transform.forward(); 
                     linear_velocity.x -= direction.x * (movement_acceleration.0 * movement_deceleration.0) * delta_time;
                     linear_velocity.z -= direction.z * (movement_acceleration.0 * movement_deceleration.0) * delta_time;

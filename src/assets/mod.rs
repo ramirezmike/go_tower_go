@@ -31,6 +31,9 @@ pub struct GameAssets {
     pub cannon: GameMesh,
     pub bevy_icon: GameTexture,
 
+    pub smoke_image: GameTexture,
+    pub smoke: Handle<Mesh>,
+
     pub drive_animation: Handle<AnimationClip>,
 }
 

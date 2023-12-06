@@ -6,7 +6,9 @@ use smooth_bevy_cameras::{
 use super::{player, controller};
 use bevy::transform::TransformSystem;
 use bevy_xpbd_3d::PhysicsSet;
+use bevy_turborand::prelude::*;
 use bevy_xpbd_3d::prelude::*;
+use bevy_camera_shake::{RandomSource, Shake3d};
 
 pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
@@ -48,11 +50,49 @@ pub struct SpawnCamera<C: Component + Clone> {
 }
 impl<C: Component + Clone> Command for SpawnCamera<C> {
     fn apply(self, world: &mut World) {
+
+        let shake_id = world 
+            .spawn((Shake3d {
+                max_offset: Vec3::new(0.0, 0.0, 0.0),
+                max_yaw_pitch_roll: Vec3::new(0.1, 0.1, 0.1),
+                trauma: 0.0,
+                trauma_power: 2.0,
+                decay: 0.8,
+                random_sources: [
+                    Box::new(RandomShake),
+                    Box::new(RandomShake),
+                    Box::new(RandomShake),
+                    Box::new(RandomShake),
+                    Box::new(RandomShake),
+                    Box::new(RandomShake),
+                ],
+            },
+            SpatialBundle::default()))
+            .id();
+
+        let camera_id = 
         world
             .spawn((Camera3dBundle {
                 transform: Transform::from_xyz(-5.6, 2.7, 0.)
                     .looking_at(Vec3::new(0., 0.8, 0.), Vec3::Y),
                 ..default()
-            },self.cleanup_marker));
+            },self.cleanup_marker)).id();
+
+        if let Some(mut entity) = world.get_entity_mut(shake_id) {
+            entity.push_children(&[camera_id]);
+        }
+    }
+}
+
+fn random_number() -> f32 {
+    let rng = Rng::new();
+    let x: f32 = rng.f32();
+    x * 2.0 - 1.0
+}
+
+struct RandomShake;
+impl RandomSource for RandomShake {
+    fn rand(&self, _time: f32) -> f32 {
+        random_number()
     }
 }
