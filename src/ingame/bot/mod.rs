@@ -21,6 +21,7 @@ impl Plugin for BotPlugin {
 #[derive(Component, Default)]
 pub struct Bot {
     target: Option<usize>,
+    spawn_delay: Timer,
     random: f32,
 }
 
@@ -28,6 +29,7 @@ impl Bot {
     pub fn new(random: f32) -> Self {
         Bot {
             random,
+            spawn_delay: Timer::from_seconds(1., TimerMode::Once),
             ..default()
         }
     }
@@ -64,12 +66,17 @@ impl TowerPlacer {
 
 fn place_towers(
     mut commands: Commands,
-    mut bots: Query<(Entity, &Bot, &mut TowerPlacer)>,
+    mut bots: Query<(Entity, &mut Bot, &mut TowerPlacer)>,
     waypoints: Query<&race::WayPoint>,
     mut global_rng: ResMut<GlobalRng>,
     path_manager: Res<path::PathManager>,
+    time: Res<Time>,
 ) {
-    for (entity, b, mut tower_placer) in &mut bots {
+    for (entity, mut b, mut tower_placer) in &mut bots {
+        if !b.spawn_delay.tick(time.delta()).finished() {
+            continue;
+        }
+
         if let Some(bot_index) = b.target {
             let waypoints =
             waypoints.iter()
@@ -98,6 +105,7 @@ fn place_towers(
                         entity
                     });
 
+                    b.spawn_delay = Timer::from_seconds(1., TimerMode::Once);
                     tower_placer.min_percentage_into_track = 0.1 + (global_rng.f32() % 0.8);
                 } 
             }
