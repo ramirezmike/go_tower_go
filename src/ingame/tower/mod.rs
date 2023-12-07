@@ -3,6 +3,7 @@ use bevy::ecs::system::{Command, SystemState};
 use bevy::gltf::Gltf;
 use crate::{assets, util, AppState, ingame, };
 use super::{kart, bullet, config, points, common,};
+use bevy_turborand::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 
@@ -18,6 +19,7 @@ impl Plugin for TowerPlugin {
 
 #[derive(Component, Default)]
 struct Tower {
+    delay_start: Timer,
     action_cooldown: Timer,
     target: Vec3,
     color: Color,
@@ -39,6 +41,10 @@ fn tower_actions(
     mut gizmos: Gizmos,
 ) {
     for (tower_entity, mut tower, tower_transform) in &mut towers {
+        if !tower.delay_start.tick(time.delta()).finished() {
+            continue;
+        }
+
         if tower.action_cooldown.tick(time.delta()).just_finished() {
             let spawn_point = tower_transform.translation + Vec3::new(0., config::TOWER_HEIGHT, 0.);
             for (cannon_entity, cannon) in &cannons {
@@ -138,10 +144,11 @@ impl Command for TowerSpawner {
             Res<assets::GameAssets>,
             Res<Assets<Gltf>>,
             SpatialQuery,
+            ResMut<GlobalRng>,
             Query<(&Transform, &kart::Kart, &mut points::Points)>,
         )> = SystemState::new(world);
 
-        let (mut assets_handler, game_assets, assets_gltf, spatial_query, mut points) = system_state.get_mut(world);
+        let (mut assets_handler, game_assets, assets_gltf, spatial_query, mut global_rng, mut points) = system_state.get_mut(world);
 
         if let Ok((transform, kart, mut point)) = points.get_mut(self.entity) {
             let spawn_point = transform.translation;
@@ -184,11 +191,13 @@ impl Command for TowerSpawner {
                             let spawn_point = spawn_point + offset_with_buffer;
 
                             point.0 -= cost;
+                            let random = global_rng.f32();
 
                             let tower_id = world.spawn((
                                 Tower {
                                     target,
                                     color,
+                                    delay_start: Timer::from_seconds(random, TimerMode::Once),
                                     action_cooldown:Timer::from_seconds(0.5, TimerMode::Repeating), 
                                 },
                                 ingame::CleanupMarker,
