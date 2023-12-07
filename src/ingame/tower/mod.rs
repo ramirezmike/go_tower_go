@@ -50,7 +50,7 @@ fn tower_actions(
             for (cannon_entity, cannon) in &cannons {
                 if cannon.parent == tower_entity {
                     commands.entity(cannon_entity)
-                        .insert(common::scaler::Scaler::new(Vec3::splat(1.2), 0.1, 0.4));
+                        .insert(common::scaler::Scaler::new(Vec3::splat(1.2), 0.1, 0.4, false));
                 }
             }
 
@@ -114,9 +114,11 @@ impl Command for CannonSpawner {
                 mesh,
                 material,
                 transform: Transform::from_translation(self.spawn_point + Vec3::new(0., config::TOWER_HEIGHT - 1., 0.))
-                            .looking_at(self.target - Vec3::new(0., config::TOWER_HEIGHT - 1., 0.), Vec3::Y),
+                            .looking_at(self.target - Vec3::new(0., config::TOWER_HEIGHT - 1., 0.), Vec3::Y)
+                            .with_scale(Vec3::splat(0.1)),
                 ..default()
             },
+            common::scaler::Scaler::new(Vec3::splat(1.0), 0.5, 0.0, true),
             ingame::CleanupMarker,
             Cannon {
                 parent: self.parent,
@@ -201,10 +203,11 @@ impl Command for TowerSpawner {
                                     action_cooldown:Timer::from_seconds(0.5, TimerMode::Repeating), 
                                 },
                                 ingame::CleanupMarker,
+                                common::scaler::Scaler::new(Vec3::splat(1.0), 0.5, 0.0, true),
                                 util::scene_hook::HookedSceneBundle {
                                     scene: SceneBundle {
                                         scene,
-                                        transform: Transform::from_translation(spawn_point),
+                                        transform: Transform::from_translation(spawn_point).with_scale(Vec3::splat(0.1)),
                                         ..default()
                                     },
                                     hook: util::scene_hook::SceneHook::new(move |cmds, hook_data| {

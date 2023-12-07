@@ -173,5 +173,10 @@ fn setup(
     ));
 
     commands.add(camera::SpawnCamera { cleanup_marker: CleanupMarker });
+
+    #[cfg(feature = "debug")]
+    next_ingame_state.set(IngameState::InGame);
+
+    #[cfg(not(feature = "debug"))]
     next_ingame_state.set(IngameState::PreGame);
 }

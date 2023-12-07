@@ -19,14 +19,14 @@ pub struct Scaler {
 }
 
 impl Scaler {
-    pub fn new(size: Vec3, scale_up_time: f32, scale_down_time: f32) -> Self {
+    pub fn new(size: Vec3, scale_up_time: f32, scale_down_time: f32, has_started: bool) -> Self {
         Scaler {
             size,
             current_time: 0.,
             scale_up_time,
             scale_down_time,
             has_peaked: false,
-            has_started: false,
+            has_started,
         }
     }
 }
