@@ -225,7 +225,7 @@ impl Command for TowerSpawner {
                         } 
                     }
                 }
-            }
+            } 
         }
     }
 }

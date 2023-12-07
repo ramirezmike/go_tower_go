@@ -13,7 +13,7 @@ impl Plugin for BotPlugin {
         app.add_systems(Update, (find_target, move_bots).chain().run_if(in_state(AppState::InGame)))
             .add_systems(
                 FixedUpdate,
-                (place_towers).run_if(in_state(AppState::InGame)),
+                ((place_towers, apply_deferred).chain()).run_if(in_state(AppState::InGame)),
             );
     }
 }
@@ -56,7 +56,7 @@ pub struct TowerPlacer {
 impl TowerPlacer {
     pub fn new(random: f32) -> Self {
         TowerPlacer {
-            min_percentage_into_track: random,
+            min_percentage_into_track: 0.1 + (random % 0.8),
             ..default()
         }
     }
@@ -98,8 +98,8 @@ fn place_towers(
                         entity
                     });
 
-                    tower_placer.min_percentage_into_track = global_rng.f32();
-                }
+                    tower_placer.min_percentage_into_track = 0.1 + (global_rng.f32() % 0.8);
+                } 
             }
         }
     }
