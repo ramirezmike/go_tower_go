@@ -65,6 +65,9 @@ impl Command for IngameLoader {
 #[derive(Component, Clone)]
 pub struct CleanupMarker;
 
+#[derive(Component)]
+pub struct Track;
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -87,6 +90,7 @@ fn setup(
                         if name.contains("collide") {
                             cmds.insert((
                                 RigidBody::Static,
+                                Track,
                                 Collider::trimesh_from_mesh(mesh).unwrap(), 
                                 OutlineBundle {
                                     outline: OutlineVolume {
@@ -169,5 +173,5 @@ fn setup(
     ));
 
     commands.add(camera::SpawnCamera { cleanup_marker: CleanupMarker });
-    next_ingame_state.set(IngameState::InGame);
+    next_ingame_state.set(IngameState::PreGame);
 }

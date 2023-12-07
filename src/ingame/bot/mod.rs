@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{AppState, };
+use crate::{AppState, IngameState};
 use bevy_turborand::prelude::*;
 use super::{controller, path, race, tower};
 use bevy_xpbd_3d::prelude::*;
@@ -10,7 +10,9 @@ use bevy::gizmos::gizmos::Gizmos;
 pub struct BotPlugin;
 impl Plugin for BotPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (find_target, move_bots).chain().run_if(in_state(AppState::InGame)))
+        app.add_systems(Update, (find_target, move_bots).chain()
+                        .run_if(in_state(AppState::InGame).and_then(in_state(IngameState::InGame)))
+                        )
             .add_systems(
                 FixedUpdate,
                 ((place_towers, apply_deferred).chain()).run_if(in_state(AppState::InGame)),

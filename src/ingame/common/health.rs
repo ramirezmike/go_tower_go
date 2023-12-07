@@ -80,12 +80,15 @@ fn scale_healthbars(
 }
 
 fn healthbar_follow_parent(
-    mut healthbars: Query<(&mut Transform, &HealthBar)>,
+    mut commands: Commands,
+    mut healthbars: Query<(Entity, &mut Transform, &HealthBar)>,
     parents: Query<&Transform, Without<HealthBar>>,
 ) {
-    for (mut healthbar_transform, healthbar) in healthbars.iter_mut() {
+    for (entity, mut healthbar_transform, healthbar) in healthbars.iter_mut() {
         if let Ok(parent) = parents.get(healthbar.parent) {
             healthbar_transform.translation = parent.translation + healthbar.offset;
+        } else {
+            commands.entity(entity).despawn_recursive();
         }
     }
 }

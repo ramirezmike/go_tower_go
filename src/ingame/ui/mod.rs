@@ -2,12 +2,16 @@ use crate::{assets::GameAssets, cleanup, ui, IngameState, ingame::{player, race,
 use bevy::prelude::*;
 use std::collections::HashMap;
 
+mod end_game;
+mod pre_game;
+
 const UI_UPDATE: f64 = 0.5;
 pub struct InGameUIPlugin;
 impl Plugin for InGameUIPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(IngameState::InGame), setup)
         .insert_resource(Time::from_seconds(UI_UPDATE))
+        .add_plugins((end_game::EndGamePlugin, pre_game::PreGamePlugin))
         .add_systems(
             FixedUpdate,
             (update_lap_counter, update_place, update_credits).run_if(in_state(IngameState::InGame)),

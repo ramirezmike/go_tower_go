@@ -1,7 +1,7 @@
 // Adapted from bevy_xpbd_3d 🙏🙏🙏🙏🙏  
 use bevy::{ecs::query::Has, prelude::*};
 use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
-use crate::{ingame::config, ingame::tower};
+use crate::{ingame::config, ingame::tower, AppState, IngameState};
 
 pub struct CharacterControllerPlugin;
 
@@ -11,8 +11,8 @@ impl Plugin for CharacterControllerPlugin {
             .add_systems(
                 Update,
                 (
-                    keyboard_input,
-                    gamepad_input,
+                    (keyboard_input,
+                    gamepad_input,).run_if(in_state(AppState::InGame).and_then(in_state(IngameState::InGame))),
                     update_grounded,
                     apply_deferred,
                     apply_gravity,

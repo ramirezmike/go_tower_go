@@ -6,8 +6,8 @@ use bevy_turborand::prelude::*;
 use std::f32::consts::TAU;
 use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
-use crate::{assets, util, AppState, };
-use super::{bot, controller, player, config, race, points, game_settings, particle, common, CleanupMarker};
+use crate::{assets, util, AppState, IngameState};
+use super::{bot, controller, player, config, race, points, game_settings, particle, common, CleanupMarker, bullet};
 use bevy_xpbd_3d::PhysicsSet;
 use bevy::transform::TransformSystem;
 
@@ -54,11 +54,37 @@ impl Default for Smoker {
 
 fn handle_deaths(
     mut commands: Commands,
-    karts: Query<(Entity, &common::health::Health, Has<player::Player>), With<Kart>>,
+    karts: Query<(Entity, &Transform, &common::health::Health, &Kart,Has<player::Player>), >,
+    mut bullet_hit_event_writer: EventWriter<bullet::CreateHitEvent>,
+    time: Res<Time>,
+    mut game_state: ResMut<game_settings::GameState>,
+    mut next_ingame_state: ResMut<NextState<IngameState>>,
+    mut current_state: ResMut<State<IngameState>>,
 ) {
-    for (entity, health, is_player) in &karts {
+    let mut player_is_dead = false;
+    let mut player_exists= false;
+    for (entity, transform, health, kart, is_player) in &karts {
         if health.is_dead() {
+            bullet_hit_event_writer.send(bullet::CreateHitEvent {
+                position: transform.translation,
+                count: config::KART_DIE_HIT_COUNT,
+                with_physics: true,
+                color: kart.0,
+            });
             commands.entity(entity).despawn_recursive();
+        }
+
+        if is_player {
+            player_is_dead = health.is_dead(); 
+            player_exists = true;
+        }
+    }
+    
+    if *current_state.get() == IngameState::InGame{
+        let player_won = player_exists && karts.iter().len() <= 1;
+        if ((!player_exists || player_is_dead) || player_won) && game_state.player_death_cooldown.tick(time.delta()).finished() {
+            game_state.is_winner = player_won;
+            next_ingame_state.set(IngameState::EndGame);
         }
     }
 }

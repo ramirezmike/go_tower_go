@@ -19,12 +19,15 @@ impl Plugin for BulletPlugin {
 #[derive(Component)]
 pub struct BulletHit {
     pub move_toward: Vec3,
+    pub with_physics: bool,
 }
 
 #[derive(Event)]
 pub struct CreateHitEvent {
     pub position: Vec3,
+    pub count: usize,
     pub color: Color,
+    pub with_physics: bool,
 }
 
 pub fn animate_hit(
@@ -38,11 +41,13 @@ pub fn animate_hit(
 //      transform.rotate(Quat::from_rotation_y(time.delta_seconds()));
         transform.scale *= 1.0 - (time.delta_seconds() * config::HIT_SHRINK_SPEED);
 
-        let target = transform
-            .translation
-            .lerp(hit.move_toward, time.delta_seconds() * config::HIT_SPEED);
-        if !target.is_nan() {
-            transform.translation = target;
+        if !hit.with_physics {
+            let target = transform
+                .translation
+                .lerp(hit.move_toward, time.delta_seconds() * config::HIT_SPEED);
+            if !target.is_nan() {
+                transform.translation = target;
+            }
         }
 
         let mut despawn_entity = true; // if the material doesn't exist, just despawn
@@ -85,16 +90,18 @@ pub fn handle_create_hit_event(
 
             let mut material: StandardMaterial = event.color.into();
             material.alpha_mode = AlphaMode::Blend;
+            let mut particle = 
             commands
                 .spawn(PbrBundle {
                     transform,
                     ..Default::default()
-                })
+                });
+            particle
                 .with_children(|parent| {
                     parent
                         .spawn(PbrBundle {
                             mesh: meshes.add(Mesh::from(shape::Cube {
-                                size: 0.5,
+                                size: 0.25,
                             })),
                             material: materials.add(material),
                             transform: {
@@ -106,8 +113,14 @@ pub fn handle_create_hit_event(
                             visibility: Visibility::Visible,
                             ..Default::default()
                         })
-                        .insert(BulletHit { move_toward });
+                        .insert(BulletHit { with_physics: event.with_physics, move_toward });
                 });
+
+            particle.insert((
+                RigidBody::Dynamic,
+                LinearVelocity(move_toward.normalize() * 0.01),
+                Collider::cuboid(0.1, 0.1, 0.1),
+            ));
         }
     }
 }

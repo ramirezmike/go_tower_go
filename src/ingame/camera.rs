@@ -70,11 +70,20 @@ impl<C: Component + Clone> Command for SpawnCamera<C> {
             SpatialBundle::default()))
             .id();
 
+        let transform;
+        #[cfg(feature = "debug")]
+        {
+            transform = Transform::from_xyz(-5.6, 2.7, 0.).looking_at(Vec3::new(0., 0.8, 0.), Vec3::Y);
+        }
+        #[cfg(not(feature = "debug"))]
+        {
+            transform = Transform::from_xyz(100., 250., -2.9).looking_at(Vec3::new(0., 0.8, 0.), Vec3::Y);
+        }
+
         let camera_id = 
         world
             .spawn((Camera3dBundle {
-                transform: Transform::from_xyz(-5.6, 2.7, 0.)
-                    .looking_at(Vec3::new(0., 0.8, 0.), Vec3::Y),
+                transform,
                 ..default()
             },self.cleanup_marker)).id();
 

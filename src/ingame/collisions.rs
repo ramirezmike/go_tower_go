@@ -1,7 +1,7 @@
 use bevy::{prelude::*, ecs::system::{Command, SystemState}, };
 use crate::{AppState, util};
 use bevy_xpbd_3d::{math::*, prelude::*};
-use super::{race, bullet, kart, player, common};
+use super::{race, bullet, kart, player, common, config};
 
 pub struct CollisionsPlugin;
 impl Plugin for CollisionsPlugin {
@@ -20,6 +20,7 @@ fn handle_collisions(
     waypoint_trackers: Query<(Entity, &race::NextWayPoint)>,
     bullets: Query<(Entity, &bullet::Bullet, &Transform)>,
     karts: Query<(Entity, &kart::Kart, Has<player::Player>)>,
+    tracks: Query<(Entity, With<super::Track>)>
 ) {
     for Collision(contacts) in collision_event_reader.read() {
         match (waypoint_trackers.get(contacts.entity1), waypoints.get(contacts.entity2),
@@ -51,6 +52,8 @@ fn handle_collisions(
                 });
                 bullet_hit_event_writer.send(bullet::CreateHitEvent {
                     position: bullet.2.translation,
+                    count: config::BULLET_HIT_COUNT,
+                    with_physics: true,
                     color: bullet.1.color,
                 });
 
@@ -62,14 +65,18 @@ fn handle_collisions(
             _ => ()
         }
 
-        // despawn bullets hitting anything
-        match (bullets.get(contacts.entity1), bullets.get(contacts.entity2)) {
-            (Ok(e), _) | (_, Ok(e)) => {
+        // despawn bullets hitting track
+        match (bullets.get(contacts.entity1), tracks.get(contacts.entity2),
+               bullets.get(contacts.entity2), tracks.get(contacts.entity1)) {
+            (Ok(bullet), Ok(track), _, _) | 
+            (_, _, Ok(bullet), Ok(track)) => {
                 bullet_hit_event_writer.send(bullet::CreateHitEvent {
-                    position: e.2.translation,
-                    color: e.1.color,
+                    position: bullet.2.translation,
+                    count: config::BULLET_HIT_COUNT,
+                    with_physics: true,
+                    color: bullet.1.color,
                 });
-                commands.entity(e.0).despawn_recursive();
+                commands.entity(bullet.0).despawn_recursive();
             },
             _ => ()
         }

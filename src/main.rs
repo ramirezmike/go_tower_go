@@ -76,6 +76,8 @@ pub enum AppState {
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash, States)]
 pub enum IngameState {
     InGame,
+    EndGame,
+    PreGame, // haha yeaaah
     #[default]
     Disabled,
 }
