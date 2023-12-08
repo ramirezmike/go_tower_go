@@ -8,6 +8,7 @@ use bevy::asset::AssetMetaCheck;
 mod assets;
 mod ingame;
 mod menu;
+mod shaders;
 mod util;
 mod ui;
 
@@ -42,6 +43,7 @@ fn main() {
         .add_plugins((assets::AssetsPlugin, util::UtilPlugin, ingame::InGamePlugin, 
             ui::text_size::TextSizePlugin,
             ui::follow_text::FollowTextPlugin,
+            shaders::ShaderPlugin,
             menu::MenuPlugin,
         ))
         .add_systems(Update, bootstrap.run_if(in_state(AppState::Initial)))

@@ -33,7 +33,8 @@ pub struct GameAssets {
     pub tower_01: Handle<Gltf>,
     pub cannon: GameMesh,
     pub bevy_icon: GameTexture,
-
+    pub skybox: Handle<Gltf>,
+    pub background_image: GameTexture,
 
     pub title_screen_logo: GameTexture,
     pub smoke_image: GameTexture,

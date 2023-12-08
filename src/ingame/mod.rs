@@ -2,7 +2,7 @@ use bevy::{prelude::*, ecs::system::{Command, SystemState}, gltf::Gltf, };
 use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_turborand::prelude::*;
 use std::f32::consts::TAU;
-use crate::{assets, AppState, util, IngameState, cleanup};
+use crate::{assets, AppState, util, IngameState, cleanup, shaders};
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 
 mod bot;
@@ -50,11 +50,16 @@ impl Command for IngameLoader {
         assets_handler.add_glb(&mut game_assets.car, "models/tower_car.glb");
         assets_handler.add_animation(&mut game_assets.drive_animation,"models/tower_car.glb#Animation0");
         assets_handler.add_glb(&mut game_assets.tower_01, "models/tower.glb");
+        assets_handler.add_glb(&mut game_assets.skybox, "models/skybox.glb");
 
         assets_handler.add_material(&mut game_assets.smoke_image, "textures/smoke.png", true);
+        assets_handler.add_material(
+            &mut game_assets.background_image,
+            "textures/ingame_background.png", 
+            false,
+        );
 
         assets_handler.add_standard_mesh(&mut game_assets.smoke, Mesh::from(shape::Plane { size: 0.5, subdivisions: 0 }));
-
 
         assets_handler.add_mesh(
             &mut game_assets.cannon.mesh,
@@ -77,6 +82,7 @@ fn setup(
     assets_gltf: Res<Assets<Gltf>>,
     mut next_ingame_state: ResMut<NextState<IngameState>>,
     mut game_state: ResMut<game_settings::GameState>,
+    mut shader_materials: shaders::ShaderMaterials,
 ) {
     if let Some(gltf) = assets_gltf.get(&game_assets.track) {
         commands.spawn((
@@ -150,6 +156,50 @@ fn setup(
             }, 
             CleanupMarker,
         ));
+    }
+
+    if game_state.enable_background {
+        if let Some(gltf) = assets_gltf.get(&game_assets.skybox) {
+            let material = shader_materials
+                .ingame_backgrounds
+                .add(shaders::BackgroundMaterial {
+                    texture: game_assets.background_image.image.clone(),
+                    color: Color::rgba(1., 1., 1., 1.0),
+                    x_scroll_speed: 1.0,
+                    y_scroll_speed: 1.0,
+                    scale: 1.0,
+                });
+            let alpha_material = materials.add(StandardMaterial {
+                base_color: Color::rgba(1., 1., 1., 0.),
+                unlit: true,
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            });
+            commands.spawn((
+                util::scene_hook::HookedSceneBundle {
+                    scene: SceneBundle {
+                        scene: gltf.scenes[0].clone(),
+                        ..default()
+                    },
+                    hook: util::scene_hook::SceneHook::new(move |cmds, hook_data| {
+                        if let Some(name) = hook_data.name {
+                            let name = name.as_str();
+
+                            if name.contains("Cube") {
+                                println!(" GOt CUBE");
+                                cmds.insert((
+                                    material.clone(),
+                                    alpha_material.clone(),
+                                    bevy::pbr::NotShadowCaster,
+                                    bevy::pbr::NotShadowReceiver,
+                                ));
+                            }
+                        }
+                    }),
+                },
+                CleanupMarker,
+            ));
+        }
     }
 
     commands.insert_resource(AmbientLight {

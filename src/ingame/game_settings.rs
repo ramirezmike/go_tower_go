@@ -35,13 +35,13 @@ impl Default for GameState {
         GameState {
             kart_colors: vec!(
                 Color::hex("809BCE").unwrap(),
-                Color::hex("DEDEDE").unwrap(),
+                Color::hex("8E7AAA").unwrap(),
                 Color::hex("EAC4D5").unwrap(),
                 Color::hex("898D89").unwrap(),
                 Color::hex("FFEE93").unwrap(),
                 Color::hex("F2CC8F").unwrap(),
                 Color::hex("A0E2B1").unwrap(),
-                Color::hex("8E7AAA").unwrap(),
+                Color::hex("d84546").unwrap(),
 
             ),
             pregame_cooldown: Timer::from_seconds(5., TimerMode::Once),
