@@ -7,7 +7,7 @@ use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 
 mod bot;
 mod bullet;
-mod camera; 
+pub mod camera; 
 mod common;
 mod kart;
 mod controller;
@@ -15,7 +15,7 @@ mod collisions;
 mod path;
 mod race;
 mod finish_line;
-mod game_settings;
+pub mod game_settings;
 mod points;
 mod particle;
 mod ui;
@@ -48,6 +48,7 @@ impl Command for IngameLoader {
 
         assets_handler.add_glb(&mut game_assets.track, "models/track.glb");
         assets_handler.add_glb(&mut game_assets.car, "models/tower_car.glb");
+        assets_handler.add_animation(&mut game_assets.drive_animation,"models/tower_car.glb#Animation0");
         assets_handler.add_glb(&mut game_assets.tower_01, "models/tower.glb");
 
         assets_handler.add_material(&mut game_assets.smoke_image, "textures/smoke.png", true);
@@ -77,7 +78,6 @@ fn setup(
     mut next_ingame_state: ResMut<NextState<IngameState>>,
     mut game_state: ResMut<game_settings::GameState>,
 ) {
-    *game_state = game_settings::GameState::default();
     if let Some(gltf) = assets_gltf.get(&game_assets.track) {
         commands.spawn((
             util::scene_hook::HookedSceneBundle {
@@ -92,6 +92,7 @@ fn setup(
                                 RigidBody::Static,
                                 Track,
                                 Collider::trimesh_from_mesh(mesh).unwrap(), 
+                                CollisionLayers::new([collisions::Layer::Ground], [collisions::Layer::Kart, collisions::Layer::Bullet]),
                                 OutlineBundle {
                                     outline: OutlineVolume {
                                         visible: true,
@@ -164,7 +165,7 @@ fn setup(
             )),
             directional_light: DirectionalLight {
                 illuminance: 100000.0,
-                shadows_enabled: true,
+                shadows_enabled: game_state.enable_shadows,
                 ..Default::default()
             },
             ..Default::default()

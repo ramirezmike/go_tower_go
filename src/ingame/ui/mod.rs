@@ -123,7 +123,7 @@ fn setup(
                     TextStyle {
                         font: game_assets.font.clone(),
                         font_size: text_scaler.scale(ui::DEFAULT_FONT_SIZE),
-                        color: Color::WHITE,
+                        color: Color::BLACK,
                     },
                 ),
                 ..default()
@@ -154,7 +154,7 @@ fn setup(
                     TextStyle {
                         font: game_assets.font.clone(),
                         font_size: text_scaler.scale(ui::DEFAULT_FONT_SIZE),
-                        color: Color::WHITE,
+                        color: Color::BLACK,
                     },
                 ),
                 ..default()
@@ -185,7 +185,7 @@ fn setup(
                     TextStyle {
                         font: game_assets.font.clone(),
                         font_size: text_scaler.scale(ui::DEFAULT_FONT_SIZE),
-                        color: Color::WHITE,
+                        color: Color::BLACK,
                     },
                 ),
                 ..default()

@@ -1,7 +1,7 @@
 pub mod command_ext {
     use crate::{
         assets::loader::QueueState,
-        AppState, ingame,
+        AppState, ingame, menu,
     };
     use bevy::ecs::system::{Command, SystemState};
     use bevy::prelude::*;
@@ -29,12 +29,16 @@ pub mod command_ext {
             #[cfg(feature = "debug")]
             {
                 // Add all loaders here
+                menu::splash::SplashLoader.apply(world);
+                menu::title_screen::loader::TitleScreenLoader.apply(world);
                 ingame::IngameLoader.apply(world);
                 // return;
             }
 
             match self.0 {
                 AppState::InGame => ingame::IngameLoader.apply(world),
+                AppState::Splash => menu::splash::SplashLoader.apply(world),
+                AppState::TitleScreen => menu::title_screen::loader::TitleScreenLoader.apply(world),
                 _ => (),
             }
         }

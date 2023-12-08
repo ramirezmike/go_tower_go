@@ -7,6 +7,7 @@ use bevy::asset::AssetMetaCheck;
 
 mod assets;
 mod ingame;
+mod menu;
 mod util;
 mod ui;
 
@@ -41,6 +42,7 @@ fn main() {
         .add_plugins((assets::AssetsPlugin, util::UtilPlugin, ingame::InGamePlugin, 
             ui::text_size::TextSizePlugin,
             ui::follow_text::FollowTextPlugin,
+            menu::MenuPlugin,
         ))
         .add_systems(Update, bootstrap.run_if(in_state(AppState::Initial)))
         .add_state::<IngameState>()
@@ -70,6 +72,9 @@ pub enum AppState {
     #[default]
     Initial,
     Loading,
+    TitleScreen,
+    Splash,
+    Settings,
     InGame,
 }
 
@@ -83,14 +88,15 @@ pub enum IngameState {
 }
 
 use assets::command_ext::*;
-fn bootstrap(mut commands: Commands) {
+fn bootstrap(mut commands: Commands, mut clear_color: ResMut<ClearColor>) {
+    clear_color.0 = Color::hex("FFFFFF").unwrap();
     #[cfg(feature = "debug")]
     {
         commands.load_state(AppState::InGame);
     }
 
     #[cfg(not(feature = "debug"))]
-    commands.load_state(AppState::InGame);
+    commands.load_state(AppState::Splash);
 }
 
 pub fn cleanup<T: Component>(mut commands: Commands, entities: Query<Entity, With<T>>) {

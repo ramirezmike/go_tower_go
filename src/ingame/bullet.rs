@@ -5,7 +5,7 @@ use std::f32::consts::TAU;
 use bevy_xpbd_3d::prelude::*;
 use bevy_turborand::prelude::*;
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
-use crate::{assets, ingame::config, util, AppState};
+use crate::{assets, ingame::{config, collisions}, util, AppState};
 
 pub struct BulletPlugin;
 impl Plugin for BulletPlugin {
@@ -14,7 +14,6 @@ impl Plugin for BulletPlugin {
             .add_event::<CreateHitEvent>();
     }
 }
-
 
 #[derive(Component)]
 pub struct BulletHit {
@@ -116,11 +115,14 @@ pub fn handle_create_hit_event(
                         .insert(BulletHit { with_physics: event.with_physics, move_toward });
                 });
 
-            particle.insert((
-                RigidBody::Dynamic,
-                LinearVelocity(move_toward.normalize() * 0.01),
-                Collider::cuboid(0.1, 0.1, 0.1),
-            ));
+            if event.with_physics {
+                particle.insert((
+                    RigidBody::Dynamic,
+                    LinearVelocity(move_toward.normalize() * 10.0),
+                    CollisionLayers::new([collisions::Layer::Bullet], [collisions::Layer::Ground]),
+                    Collider::cuboid(0.1, 0.1, 0.1),
+                ));
+            }
         }
     }
 }
@@ -128,6 +130,7 @@ pub fn handle_create_hit_event(
 pub struct BulletSpawner<C: Component + Clone>  {
     pub spawn_point: Vec3,
     pub direction: Vec3,
+    pub owner: Entity,
     pub color: Color,
     pub speed: f32,
     pub cleanup_marker: C
@@ -161,7 +164,9 @@ impl<C: Component + Clone>  Command for BulletSpawner<C> {
                 ..default()
             },
             Collider::cuboid(1.5, 1.5, 1.5),
+//            CollisionLayers::new([collisions::Layer::Bullet], [collisions::Layer::Ground]),
             Bullet {
+                owner: self.owner,
                 direction: self.direction,
                 color: self.color,
                 speed: self.speed,
@@ -173,6 +178,7 @@ impl<C: Component + Clone>  Command for BulletSpawner<C> {
 
 #[derive(Component)]
 pub struct Bullet {
+    pub owner: Entity,
     pub direction: Vec3,
     pub speed: f32,
     pub color: Color,

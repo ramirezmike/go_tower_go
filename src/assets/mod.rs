@@ -2,6 +2,7 @@ use bevy::{prelude::*, gltf::Gltf};
 
 pub mod loader;
 mod loader_ext;
+use bevy_kira_audio::AudioSource;
 
 pub use self::loader_ext::*;
 
@@ -22,8 +23,10 @@ pub struct AnimationLink {
 pub struct GameAssets {
     pub font: Handle<Font>,
 
+    pub title_bgm: Handle<AudioSource>,
     pub bgm_1: Handle<AudioSource>,
     pub sfx_1: Handle<AudioSource>,
+    pub sfx_2: Handle<AudioSource>,
 
     pub car: Handle<Gltf>,
     pub track: Handle<Gltf>,
@@ -31,6 +34,8 @@ pub struct GameAssets {
     pub cannon: GameMesh,
     pub bevy_icon: GameTexture,
 
+
+    pub title_screen_logo: GameTexture,
     pub smoke_image: GameTexture,
     pub smoke: Handle<Mesh>,
 

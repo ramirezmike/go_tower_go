@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::ecs::system::{Command, SystemState};
 use bevy::gltf::Gltf;
 use crate::{assets, util, AppState, ingame, };
-use super::{kart, bullet, config, points, common,};
+use super::{kart, bullet, config, points, common, player, path};
 use bevy_turborand::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
@@ -17,10 +17,11 @@ impl Plugin for TowerPlugin {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, )]
 struct Tower {
     delay_start: Timer,
     action_cooldown: Timer,
+    owner: Entity,
     target: Vec3,
     color: Color,
 }
@@ -55,6 +56,7 @@ fn tower_actions(
             }
 
             commands.add(bullet::BulletSpawner {
+                owner: tower.owner,
                 spawn_point,
                 direction: tower.target - spawn_point,
                 color: tower.color,
@@ -147,12 +149,13 @@ impl Command for TowerSpawner {
             Res<Assets<Gltf>>,
             SpatialQuery,
             ResMut<GlobalRng>,
-            Query<(&Transform, &kart::Kart, &mut points::Points)>,
+            Res<path::PathManager>,
+            Query<(&Transform, &kart::Kart, &mut points::Points, Has<player::Player>)>,
         )> = SystemState::new(world);
 
-        let (mut assets_handler, game_assets, assets_gltf, spatial_query, mut global_rng, mut points) = system_state.get_mut(world);
+        let (mut assets_handler, game_assets, assets_gltf, spatial_query, mut global_rng, path_manager, mut points) = system_state.get_mut(world);
 
-        if let Ok((transform, kart, mut point)) = points.get_mut(self.entity) {
+        if let Ok((transform, kart, mut point, is_player)) = points.get_mut(self.entity) {
             let spawn_point = transform.translation;
             let cost = 4; 
             if point.0 >= cost {
@@ -162,17 +165,28 @@ impl Command for TowerSpawner {
                     let scene = gltf.scenes[0].clone();
                     let starting_height = 5.0;
 
+                    let check_point = 
+                        if is_player { 
+                            path_manager.get_closest_index(spawn_point)
+                                        .and_then(|i| path_manager.get_next(i + 1))
+                                        .map(|i| path_manager.get(i))
+                                        .map(|v| spawn_point.lerp(v, 0.45))
+                                        .unwrap_or(spawn_point)
+                        } else {
+                            spawn_point
+                        };
+
                     let rays_to_cast = vec!(
-                        spawn_point + Vec3::new(-config::TRACK_WIDTH, starting_height, 0.0),
-                        spawn_point + Vec3::new(config::TRACK_WIDTH, starting_height, 0.0),
-                        spawn_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH),
-                        spawn_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH),
+                        check_point + Vec3::new(-config::TRACK_WIDTH, starting_height, 0.0),
+                        check_point + Vec3::new(config::TRACK_WIDTH, starting_height, 0.0),
+                        check_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH),
+                        check_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH),
 
                         // just in case?
-                        spawn_point + Vec3::new(-config::TRACK_WIDTH + 1., starting_height, 0.0),
-                        spawn_point + Vec3::new(config::TRACK_WIDTH + 1., starting_height, 0.0),
-                        spawn_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH + 1.),
-                        spawn_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH + 1.),
+                        check_point + Vec3::new(-config::TRACK_WIDTH + 1., starting_height, 0.0),
+                        check_point + Vec3::new(config::TRACK_WIDTH + 1., starting_height, 0.0),
+                        check_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH + 1.),
+                        check_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH + 1.),
                     );
 
                     for ray in rays_to_cast {
@@ -185,19 +199,21 @@ impl Command for TowerSpawner {
                         );
 
                         if hit.is_none() {
-                            let original_offset = ray - spawn_point;
+                            let original_offset = ray - check_point;
                             let normalized_offset= (original_offset - Vec3::new(0., starting_height, 0.)).normalize();
                             let buffered_position = config::TRACK_WIDTH + config::TOWER_POSITION_BUFFER;
                             let offset_with_buffer = normalized_offset * Vec3::new(buffered_position, 0., buffered_position);
                             let target = spawn_point;
-                            let spawn_point = spawn_point + offset_with_buffer;
+                            let spawn_point = check_point + offset_with_buffer;
 
                             point.0 -= cost;
                             let random = global_rng.f32();
+                            let kart_color = kart.0;
 
                             let tower_id = world.spawn((
                                 Tower {
                                     target,
+                                    owner: self.entity,
                                     color,
                                     delay_start: Timer::from_seconds(random, TimerMode::Once),
                                     action_cooldown:Timer::from_seconds(0.5, TimerMode::Repeating), 
@@ -216,8 +232,8 @@ impl Command for TowerSpawner {
                                             OutlineBundle {
                                                 outline: OutlineVolume {
                                                     visible: true,
-                                                    width: 1.0,
-                                                    colour: Color::BLACK,
+                                                    width: if is_player { 8.0 } else { 1.0 },
+                                                    colour: if is_player { kart_color } else { Color::BLACK },
                                                 },
                                                 mode: OutlineMode::RealVertex,
                                                 ..default()

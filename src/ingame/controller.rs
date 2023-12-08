@@ -1,7 +1,8 @@
 // Adapted from bevy_xpbd_3d 🙏🙏🙏🙏🙏  
 use bevy::{ecs::query::Has, prelude::*};
 use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
-use crate::{ingame::config, ingame::tower, AppState, IngameState};
+use crate::{ingame::config, ingame::tower, AppState, IngameState, ingame::path, ingame::player};
+use bevy::input::gamepad::GamepadButtonType;
 
 pub struct CharacterControllerPlugin;
 
@@ -14,6 +15,7 @@ impl Plugin for CharacterControllerPlugin {
                     (keyboard_input,
                     gamepad_input,).run_if(in_state(AppState::InGame).and_then(in_state(IngameState::InGame))),
                     update_grounded,
+                    handle_fallen,
                     apply_deferred,
                     apply_gravity,
                     movement,
@@ -53,6 +55,13 @@ pub struct CharacterControllerKeyboard;
 #[derive(Component)]
 #[component(storage = "SparseSet")]
 pub struct Grounded;
+
+#[derive(Component, Debug)]
+#[component(storage = "SparseSet")]
+pub struct LastGrounded {
+    translation: Vec3,
+    delta: f32,
+}
 
 #[derive(Component)]
 #[component(storage = "SparseSet")]
@@ -174,8 +183,8 @@ fn keyboard_input(
     for entity in &keyboard_player {
         let up = keyboard_input.any_pressed([KeyCode::K, KeyCode::Up]);
         let down = keyboard_input.any_pressed([KeyCode::J, KeyCode::Down]);
-        let left = keyboard_input.any_pressed([KeyCode::A, KeyCode::Left]);
-        let right = keyboard_input.any_pressed([KeyCode::D, KeyCode::Right]);
+        let left = keyboard_input.any_pressed([KeyCode::A, ]);
+        let right = keyboard_input.any_pressed([KeyCode::D, ]);
 
         let right_trigger = keyboard_input.just_pressed(KeyCode::L) || keyboard_input.just_pressed(KeyCode::Right);
         let left_trigger = keyboard_input.just_pressed(KeyCode::H) || keyboard_input.just_pressed(KeyCode::Left);
@@ -212,37 +221,85 @@ fn keyboard_input(
 
 /// Sends [`MovementEvent`] events based on gamepad input.
 fn gamepad_input(
+    mut commands: Commands,
     mut movement_event_writer: EventWriter<MovementEvent>,
+    keyboard_player: Query<Entity, With<CharacterControllerKeyboard>>,
     gamepads: Res<Gamepads>,
     axes: Res<Axis<GamepadAxis>>,
     buttons: Res<Input<GamepadButton>>,
 ) {
-    for gamepad in gamepads.iter() {
-        let axis_lx = GamepadAxis {
-            gamepad,
-            axis_type: GamepadAxisType::LeftStickX,
-        };
-        let axis_ly = GamepadAxis {
-            gamepad,
-            axis_type: GamepadAxisType::LeftStickY,
-        };
+    // TODO: refactor this for multiplayer?
+    for entity in &keyboard_player {
+        for gamepad in gamepads.iter() {
+            let axis_lx = GamepadAxis {
+                gamepad,
+                axis_type: GamepadAxisType::LeftStickX,
+            };
+            let axis_ly = GamepadAxis {
+                gamepad,
+                axis_type: GamepadAxisType::LeftStickY,
+            };
 
-        if let (Some(x), Some(y)) = (axes.get(axis_lx), axes.get(axis_ly)) {
-            // TODO: For controller support
-            // movement_event_writer.send(MovementAction::Turn(-1.));
+
+            if buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::West }) ||
+                buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::North }) || 
+                buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::LeftTrigger }) {
+                commands.add(tower::TowerSpawner { entity });
+            }
+
+            if buttons.pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::South }) {
+                movement_event_writer.send(MovementEvent {
+                    entity,
+                    action: MovementAction::Gas,
+                });
+            }
+
+            if buttons.pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::East }) 
+            || buttons.pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::RightTrigger }) {
+                movement_event_writer.send(MovementEvent {
+                    entity,
+                    action: MovementAction::Brake,
+                });
+            }
+            if let (Some(x), Some(y)) = (axes.get(axis_lx), axes.get(axis_ly)) {
+                movement_event_writer.send(MovementEvent {
+                    entity,
+                    action: MovementAction::Turn(-x),
+                });
+            }
         }
     }
+}
+
+fn handle_fallen(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Transform, &mut LastGrounded), With<player::Player>>,
+    path_manager: Res<path::PathManager>,
+    time: Res<Time>,
+) {
+    for (entity, mut transform, mut last_grounded) in &mut query {
+        last_grounded.delta += time.delta_seconds();
+        if last_grounded.delta > 2. {
+            transform.translation = path_manager.get_closest_index(last_grounded.translation)
+                                        .and_then(|i| path_manager.get_next(i))
+                                        .map(|i| path_manager.get(i))
+                                        .map(|v| v + (Vec3::Y * 3.))
+                                        .unwrap_or(last_grounded.translation);
+            commands.entity(entity).remove::<LastGrounded>();
+        }
+    }
+
 }
 
 /// Updates the [`Grounded`] status for character controllers.
 fn update_grounded(
     mut commands: Commands,
     mut query: Query<
-        (Entity, &ShapeHits, &Rotation, Option<&MaxSlopeAngle>),
+        (Entity, &ShapeHits, &Transform, &Rotation, Option<&MaxSlopeAngle>, Has<LastGrounded>),
         With<CommonController>,
     >,
 ) {
-    for (entity, hits, rotation, max_slope_angle) in &mut query {
+    for (entity, hits, transform, rotation, max_slope_angle, has_last_grounded) in &mut query {
         // The character is grounded if the shape caster has a hit with a normal
         // that isn't too steep.
         let is_grounded = hits.iter().any(|hit| {
@@ -255,8 +312,15 @@ fn update_grounded(
 
         if is_grounded {
             commands.entity(entity).insert(Grounded);
+            commands.entity(entity).remove::<LastGrounded>();
         } else {
             commands.entity(entity).remove::<Grounded>();
+            if !has_last_grounded {
+                commands.entity(entity).insert(LastGrounded {
+                    translation: transform.translation,
+                    delta: 0.
+                });
+            }
         }
     }
 }

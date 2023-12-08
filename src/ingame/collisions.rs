@@ -1,7 +1,7 @@
 use bevy::{prelude::*, ecs::system::{Command, SystemState}, };
 use crate::{AppState, util};
 use bevy_xpbd_3d::{math::*, prelude::*};
-use super::{race, bullet, kart, player, common, config};
+use super::{race, bullet, kart, player, common, config, game_settings};
 
 pub struct CollisionsPlugin;
 impl Plugin for CollisionsPlugin {
@@ -10,8 +10,17 @@ impl Plugin for CollisionsPlugin {
     }
 }
 
+#[derive(PhysicsLayer)]
+pub enum Layer {
+    Kart,
+    Ground,
+    Bullet,
+}
+
+
 fn handle_collisions(
     mut commands: Commands,
+    mut game_state: ResMut<game_settings::GameState>,
     mut collision_event_reader: EventReader<Collision>,
     mut hit_event_writer: EventWriter<kart::HitEvent>,
     mut bullet_hit_event_writer: EventWriter<bullet::CreateHitEvent>,
@@ -41,24 +50,26 @@ fn handle_collisions(
                bullets.get(contacts.entity2), karts.get(contacts.entity1)) {
             (Ok(bullet), Ok(kart), _, _) | 
             (_, _, Ok(bullet), Ok(kart)) => {
-                commands.entity(bullet.0).despawn_recursive();
-                hit_event_writer.send(kart::HitEvent {
-                    entity: kart.0,
-                    direction: bullet.1.direction
-                });
-                health_hit_event_writer.send(common::health::HealthHitEvent {
-                    entity: kart.0,
-                    hit_points: 1
-                });
-                bullet_hit_event_writer.send(bullet::CreateHitEvent {
-                    position: bullet.2.translation,
-                    count: config::BULLET_HIT_COUNT,
-                    with_physics: true,
-                    color: bullet.1.color,
-                });
+                if bullet.1.owner != kart.0 {
+                    commands.entity(bullet.0).despawn_recursive();
+                    hit_event_writer.send(kart::HitEvent {
+                        entity: kart.0,
+                        direction: bullet.1.direction
+                    });
+                    health_hit_event_writer.send(common::health::HealthHitEvent {
+                        entity: kart.0,
+                        hit_points: 1
+                    });
+                    bullet_hit_event_writer.send(bullet::CreateHitEvent {
+                        position: bullet.2.translation,
+                        count: config::BULLET_HIT_COUNT,
+                        with_physics: game_state.enable_extra_physics,
+                        color: bullet.1.color,
+                    });
 
-                if kart.2 { // is player
-                    commands.add(util::screen_shake::CameraShake::default());
+                    if kart.2 { // is player
+                        commands.add(util::screen_shake::CameraShake::default());
+                    }
                 }
             }
 
@@ -73,7 +84,7 @@ fn handle_collisions(
                 bullet_hit_event_writer.send(bullet::CreateHitEvent {
                     position: bullet.2.translation,
                     count: config::BULLET_HIT_COUNT,
-                    with_physics: true,
+                    with_physics: game_state.enable_extra_physics,
                     color: bullet.1.color,
                 });
                 commands.entity(bullet.0).despawn_recursive();

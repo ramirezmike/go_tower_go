@@ -2,12 +2,13 @@ use bevy::prelude::*;
 use bevy::ecs::system::{Command, SystemState};
 use bevy::gltf::Gltf;
 use bevy::render::primitives::Aabb;
+use bevy_inspector_egui::egui::ecolor::linear_f32_from_gamma_u8;
 use bevy_turborand::prelude::*;
 use std::f32::consts::TAU;
 use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 use crate::{assets, util, AppState, IngameState};
-use super::{bot, controller, player, config, race, points, game_settings, particle, common, CleanupMarker, bullet};
+use super::{bot, controller, player, config, race, points, game_settings, particle, common, CleanupMarker, bullet, collisions};
 use bevy_xpbd_3d::PhysicsSet;
 use bevy::transform::TransformSystem;
 
@@ -18,7 +19,7 @@ pub struct KartPlugin;
 impl Plugin for KartPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<HitEvent>()
-            .add_systems(Update, (spawn_smoke, handle_hits, upright_karts, ).run_if(in_state(AppState::InGame)))
+            .add_systems(Update, (spawn_smoke, handle_hits, upright_karts, animate_karts).run_if(in_state(AppState::InGame)))
 
             .add_systems(
                 PostUpdate,
@@ -80,11 +81,18 @@ fn handle_deaths(
         }
     }
     
-    if *current_state.get() == IngameState::InGame{
-        let player_won = player_exists && karts.iter().len() <= 1;
-        if ((!player_exists || player_is_dead) || player_won) && game_state.player_death_cooldown.tick(time.delta()).finished() {
-            game_state.is_winner = player_won;
-            next_ingame_state.set(IngameState::EndGame);
+    #[cfg(not(feature = "no_bots"))]
+    {
+        if *current_state.get() == IngameState::InGame{
+            let player_won = player_exists && karts.iter().len() <= 1;
+            if ((!player_exists || player_is_dead) || player_won) && game_state.player_death_cooldown.tick(time.delta()).finished() {
+                if player_won {
+                    game_state.ending_state = game_settings::GameEndingState::Winner;
+                } else {
+                    game_state.ending_state = game_settings::GameEndingState::Died;
+                }
+                next_ingame_state.set(IngameState::EndGame);
+            }
         }
     }
 }
@@ -149,10 +157,26 @@ fn handle_hits(
 ) {
     for event in hit_event_reader.read() {
         if let Ok(mut velocity) = karts.get_mut(event.entity) {
-            velocity.0 = event.direction.normalize() * 10.0; 
+            velocity.0 = (event.direction.normalize() * Vec3::new(1., 0., 1.))* 10.0; 
         }
     }
 }
+
+fn animate_karts(
+    karts: Query<&LinearVelocity, With<Kart>>,
+    mut animations: Query<(&mut AnimationPlayer, &assets::AnimationLink), With<KartAnimationMarker>>,
+    game_assets: Res<assets::GameAssets>,
+) {
+    for (mut player, link) in &mut animations {
+        if let Ok(linear_velocity) = karts.get(link.entity) {
+            player.play(game_assets.drive_animation.clone_weak()).repeat();
+            player.set_speed(linear_velocity.0.length());
+        }
+    }
+}
+
+#[derive(Component)]
+struct KartAnimationMarker;
 
 pub struct KartSpawner<C: Component + Clone> {
     pub global_transform: GlobalTransform,
@@ -218,6 +242,14 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
                             if name.contains("color") {
                                 cmds.insert(color_material.clone());
                             }
+                            if name.contains("Armature") {
+                                cmds.insert((
+                                    assets::AnimationLink {
+                                        entity: kart_id ,
+                                    },
+                                    KartAnimationMarker
+                                ), );
+                            }
                         }
                     })
                 },
@@ -226,6 +258,7 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
                 points::Points(8),
                 Smoker::default(), 
                 self.cleanup_marker,
+                CollisionLayers::new([collisions::Layer::Kart], [collisions::Layer::Ground, collisions::Layer::Kart]),
                 //controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.5), Vector::NEG_Y * 9.81 * 1.5)
                 controller::CommonControllerBundle::new(Collider::cuboid(1.5, 1.0, 1.5), Vector::NEG_Y * 9.81 * 1.5),
             ));

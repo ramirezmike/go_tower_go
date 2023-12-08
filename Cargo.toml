@@ -23,6 +23,7 @@ bevy = { version = "0.12.0" }
 bevy-inspector-egui = { version = "0.21" }
 bevy_xpbd_3d = "0.3.2"
 bevy_turborand = "0.7.0"
+leafwing-input-manager = { version = "0.11" }
 bevy_kira_audio = { version = "0.18.0", features = ["wav"]}
 smooth-bevy-cameras = { git = "https://github.com/ramirezmike/smooth-bevy-cameras", branch = "main" }
 bevy_mod_outline = { git = "https://github.com/ramirezmike/bevy_mod_outline", branch = "linux_wasm" }
