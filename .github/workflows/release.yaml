@@ -1,161 +1,220 @@
-name: Release
+name: release-flow
 
 on:
   push:
     tags:
-      - '*'
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version - in the form of v1.2.3'
+        required: true
+        type: string
 
+# ToDo: adapt names
 env:
-  binary: go_tower_go
+  # heads-up: this value is used as a pattern in an sed command as a workaround for a trunk issue
+  #   if you use special characters, take a look at the 'Make paths relative' step in the 'build-web' job
+  GAME_EXECUTABLE_NAME: go_tower_go
+  GAME_OSX_APP_NAME: GoTowerGo
+
+permissions:
+  contents: write
 
 jobs:
-
-  # Build for wasm
-  release-wasm:
+  get-version:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: little-core-labs/get-git-tag@v3.0.1
-        id: get_version
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Get tag
+        id: tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+    outputs:
+      version: ${{ inputs.version || steps.tag.outputs.tag }}
+
+  build-macOS:
+    runs-on: macos-latest
+    needs: get-version
+    env:
+      # macOS 11.0 Big Sur is the first version to support universal binaries
+      MACOSX_DEPLOYMENT_TARGET: 11.0
+      VERSION: ${{needs.get-version.outputs.version}}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Remove build script
+        run: |
+          rm build.rs
+      - name: Install rust toolchain for Apple Silicon
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          target: wasm32-unknown-unknown
-          override: true
-      - name: install wasm-bindgen-cli
+          targets: aarch64-apple-darwin
+      - name: Build release for Apple Silicon
         run: |
-          cargo install wasm-bindgen-cli
-      - name: Build
-        run: |
-          cargo build --features web --release --target wasm32-unknown-unknown
-      - name: Prepare package
-        run: |
-          wasm-bindgen --no-typescript --out-name go_tower_go --out-dir wasm --target web target/wasm32-unknown-unknown/release/${{ env.binary }}.wasm
-          cp -r assets wasm/
-      - name: Package as a zip
-        uses: vimtor/action-zip@v1
+          SDKROOT=$(xcrun -sdk macosx --show-sdk-path) cargo build --release --target=aarch64-apple-darwin
+      - name: Install rust toolchain for Apple x86
+        uses: dtolnay/rust-toolchain@master
         with:
-          files: wasm
-          dest: ${{ env.binary }}.zip
-
-      - name: Upload binaries to release
+          toolchain: stable
+          targets: x86_64-apple-darwin
+      - name: Build release for x86 Apple
+        run: |
+          SDKROOT=$(xcrun -sdk macosx --show-sdk-path) cargo build --release --target=x86_64-apple-darwin
+      - name: Create Universal Binary
+        run: |
+          lipo -create -output target/release/${{ env.GAME_EXECUTABLE_NAME }} target/aarch64-apple-darwin/release/${{ env.GAME_EXECUTABLE_NAME }} target/x86_64-apple-darwin/release/${{ env.GAME_EXECUTABLE_NAME }}
+      - name: Create release
+        run: |
+          mkdir -p build/macos/src/Game.app/Contents/MacOS/assets
+          cp -r assets/ build/macos/src/Game.app/Contents/MacOS/assets
+          cp -r credits/ build/macos/src/Game.app/Contents/MacOS/credits
+          cp target/release/${{ env.GAME_EXECUTABLE_NAME }} build/macos/src/Game.app/Contents/MacOS/
+          strip build/macos/src/Game.app/Contents/MacOS/${{ env.GAME_EXECUTABLE_NAME }}
+          mv build/macos/src/Game.app build/macos/src/${{ env.GAME_OSX_APP_NAME }}.app
+          ln -s /Applications build/macos/src/
+          hdiutil create -fs HFS+ -volname "${{ env.GAME_OSX_APP_NAME }}" -srcfolder build/macos/src ${{ env.GAME_EXECUTABLE_NAME }}.dmg
+      - name: Upload release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ env.binary }}.zip
-          asset_name: ${{ env.binary }}-wasm-${{ steps.get_version.outputs.tag }}.zip
-          tag: ${{ github.ref }}
+          file: ${{ env.GAME_EXECUTABLE_NAME }}.dmg
+          asset_name: ${{ env.GAME_EXECUTABLE_NAME }}_${{ env.VERSION }}_macOS.dmg
+          release_name: ${{ env.VERSION }}
+          tag: ${{ env.VERSION }}
           overwrite: true
 
-  # Build for Linux
-  release-linux:
+  build-linux:
     runs-on: ubuntu-latest
-
+    needs: get-version
+    env:
+      VERSION: ${{needs.get-version.outputs.version}}
     steps:
-      - uses: little-core-labs/get-git-tag@v3.0.1
-        id: get_version
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          target: x86_64-unknown-linux-gnu
-          override: true
-      - name: install dependencies
+      - name: Install Dependencies
+        run: sudo apt-get update; sudo apt-get install pkg-config libx11-dev libasound2-dev libudev-dev
+      - name: Build release
         run: |
-          sudo apt-get update; sudo apt-get install pkg-config libx11-dev libasound2-dev libudev-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
-      - name: Build
+          cargo build --release
+      - name: Prepare release
         run: |
-          cargo build --release --target x86_64-unknown-linux-gnu
-      - name: Prepare package
+          strip target/release/${{ env.GAME_EXECUTABLE_NAME }}
+          chmod +x target/release/${{ env.GAME_EXECUTABLE_NAME }}
+          mv target/release/${{ env.GAME_EXECUTABLE_NAME }} .
+      - name: Bundle release
         run: |
-          mkdir linux
-          cp target/x86_64-unknown-linux-gnu/release/${{ env.binary }} linux/
-          cp -r assets linux/
-      - name: Package as a zip
-        uses: vimtor/action-zip@v1
-        with:
-          files: linux
-          dest: ${{ env.binary }}.zip
-
-      - name: Upload binaries to release
+          tar -czf ${{ env.GAME_EXECUTABLE_NAME }}_linux.tar.gz ${{ env.GAME_EXECUTABLE_NAME }} assets credits
+      - name: Upload release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ env.binary }}.zip
-          asset_name: ${{ env.binary }}-linux-${{ steps.get_version.outputs.tag }}.zip
-          tag: ${{ github.ref }}
+          file: ${{ env.GAME_EXECUTABLE_NAME }}_linux.tar.gz
+          asset_name: ${{ env.GAME_EXECUTABLE_NAME }}_${{ env.VERSION }}_linux.tar.gz
+          release_name: ${{ env.VERSION }}
+          tag: ${{ env.VERSION }}
           overwrite: true
 
-  # Build for Windows
-  release-windows:
+  build-windows:
     runs-on: windows-latest
-
+    needs: get-version
+    env:
+      VERSION: ${{needs.get-version.outputs.version}}
+      BUILD_INSTALLER: false
     steps:
-      - uses: little-core-labs/get-git-tag@v3.0.1
-        id: get_version
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          target: x86_64-pc-windows-msvc
-          override: true
-
-      - name: Build
+      - name: Install dotnet
+        if: ${{ env.BUILD_INSTALLER }}
+        uses: actions/setup-dotnet@v3
+        with:
+          global-json-file: build/windows/installer/global.json
+      - name: Build release
         run: |
-          cargo build --release --target x86_64-pc-windows-msvc
-      - name: Prepare package
+          cargo build --features web --release
+      - name: Prepare release
         run: |
-          mkdir windows
-          cp target/x86_64-pc-windows-msvc/release/${{ env.binary }}.exe windows/
-          cp -r assets windows/
-      - name: Package as a zip
+          mkdir target/release/assets && cp -r assets target/release/assets
+          mkdir target/release/credits && cp -r credits target/release/credits
+      - name: Zip release
         uses: vimtor/action-zip@v1
         with:
-          files: windows
-          dest: ${{ env.binary }}.zip
-
-      - name: Upload binaries to release
+          files: target/release/assets/ target/release/credits/ target/release/${{ env.GAME_EXECUTABLE_NAME }}.exe
+          dest: ${{ env.GAME_EXECUTABLE_NAME }}_windows.zip
+      - name: Create Installer
+        if: ${{ env.BUILD_INSTALLER }}
+        run: dotnet build -p:Version=1.2.3 -c Release build/windows/installer/Installer.wixproj --output installer
+      - name: Upload release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ env.binary }}.zip
-          asset_name: ${{ env.binary }}-windows-${{ steps.get_version.outputs.tag }}.zip
+          file: ${{ env.GAME_EXECUTABLE_NAME }}_windows.zip
+          asset_name: ${{ env.GAME_EXECUTABLE_NAME }}_${{ env.VERSION }}_windows.zip
           tag: ${{ github.ref }}
           overwrite: true
+      - name: Upload installer
+        if: ${{ env.BUILD_INSTALLER }}
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: installer/en-US/installer.msi
+          asset_name: ${{ env.GAME_EXECUTABLE_NAME }}_${{ steps.tag.outputs.tag }}_windows.msi
+          release_name: ${{ env.VERSION }}
+          tag: ${{ env.VERSION }}
+          overwrite: true
 
-  # Build for macOS
-  release-macos:
-    runs-on: macOS-latest
-
+  build-web:
+    runs-on: ubuntu-latest
+    needs: get-version
+    env:
+      VERSION: ${{needs.get-version.outputs.version}}
     steps:
-      - uses: little-core-labs/get-git-tag@v3.0.1
-        id: get_version
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          target: x86_64-apple-darwin
-          override: true
-      - name: Environment Setup
+      - name: Install Dependencies
+        run: sudo apt-get update; sudo apt-get install pkg-config libx11-dev libasound2-dev libudev-dev
+      - name: Install trunk
+        uses: jetli/trunk-action@v0.1.0
+        with:
+          version: latest
+      - name: Add wasm target
         run: |
-          export CFLAGS="-fno-stack-check"
-          export MACOSX_DEPLOYMENT_TARGET="10.9"
-      - name: Build
+          rustup target add wasm32-unknown-unknown
+      - name: Build Release
         run: |
-          cargo build --release --target x86_64-apple-darwin
-      - name: Prepare Package
+          trunk build --release
+      - name: Optimize Wasm
+        uses: NiklasEi/wasm-opt-action@v2
+        with:
+          file: dist/*.wasm
+        # Trunk cannot import assets from relative paths (see e.g. https://github.com/thedodd/trunk/issues/395)
+        # On sites like itch.io, we don't know on which base path the game gets served, so we need to rewrite all links to be relative
+      - name: Make paths relative
         run: |
-          mkdir -p ${{ env.binary }}.app/Contents/MacOS
-          cp target/x86_64-apple-darwin/release/${{ env.binary }} ${{ env.binary }}.app/Contents/MacOS/
-          cp -r assets ${{ env.binary }}.app/Contents/MacOS/
-          hdiutil create -fs HFS+ -volname "${{ env.binary }}" -srcfolder ${{ env.binary }}.app ${{ env.binary }}.dmg
-      - name: Upload binaries to release
+          sed -i 's/\/index/.\/index/g' dist/index.html
+          sed -i 's/\/${{ env.GAME_EXECUTABLE_NAME }}/.\/${{ env.GAME_EXECUTABLE_NAME }}/g' dist/index.html
+      - name: Zip release
+        uses: vimtor/action-zip@v1
+        with:
+          files: dist/
+          dest: ${{ env.GAME_EXECUTABLE_NAME }}_web.zip
+      - name: Upload release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ env.binary }}.dmg
-          asset_name: ${{ env.binary }}-macos-${{ steps.get_version.outputs.tag }}.dmg
-          tag: ${{ github.ref }}
+          file: ${{ env.GAME_EXECUTABLE_NAME }}_web.zip
+          asset_name: ${{ env.GAME_EXECUTABLE_NAME }}_${{ env.VERSION }}_web.zip
+          release_name: ${{ env.VERSION }}
+          tag: ${{ env.VERSION }}
           overwrite: true
-
