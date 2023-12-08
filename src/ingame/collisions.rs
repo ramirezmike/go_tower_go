@@ -1,7 +1,7 @@
 use bevy::{prelude::*, ecs::system::{Command, SystemState}, };
 use crate::{AppState, util};
 use bevy_xpbd_3d::{math::*, prelude::*};
-use super::{race, bullet, kart, player, common, config, game_settings};
+use super::{race, bullet, kart, player, common::{self, health::Invulnerability}, config, game_settings};
 
 pub struct CollisionsPlugin;
 impl Plugin for CollisionsPlugin {
@@ -28,7 +28,7 @@ fn handle_collisions(
     waypoints: Query<(Entity, &race::WayPoint)>,
     waypoint_trackers: Query<(Entity, &race::NextWayPoint)>,
     bullets: Query<(Entity, &bullet::Bullet, &Transform)>,
-    karts: Query<(Entity, &kart::Kart, Has<player::Player>)>,
+    karts: Query<(Entity, &kart::Kart, Has<player::Player>), Without<Invulnerability>>,
     tracks: Query<(Entity, With<super::Track>)>
 ) {
     for Collision(contacts) in collision_event_reader.read() {

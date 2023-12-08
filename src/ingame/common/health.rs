@@ -6,7 +6,7 @@ use bevy::transform::TransformSystem;
 pub struct HealthPlugin;
 impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (scale_healthbars, handle_hit_events).run_if(in_state(AppState::InGame)))
+        app.add_systems(Update, (scale_healthbars, handle_hit_events, handle_invulnerability).run_if(in_state(AppState::InGame)))
             .add_systems(
                 PostUpdate,
                 (healthbar_follow_parent, handle_healthbar_view)
@@ -27,13 +27,55 @@ pub struct HealthHitEvent {
     pub hit_points: usize
 }
 
+#[derive(Component)]
+pub struct Invulnerability {
+    time_to_live: Timer,
+    flash_cooldown: Timer,
+}
+
+impl Default for Invulnerability {
+    fn default() -> Self {
+        Invulnerability { 
+            time_to_live: Timer::from_seconds(2., TimerMode::Once), 
+            flash_cooldown: Timer::from_seconds(0.5, TimerMode::Repeating) 
+        }
+    }
+}
+
+fn handle_invulnerability(
+    mut commands: Commands,
+    mut invulnerables: Query<(Entity, &mut Invulnerability, Has<Handle<StandardMaterial>>)>,
+    //mut materials: ResMut<Assets<StandardMaterial>>,
+    time: Res<Time>,
+) {
+    for (entity, mut invulnerable, has_material) in &mut invulnerables {
+        if invulnerable.time_to_live.tick(time.delta()).finished() {
+            commands.entity(entity).remove::<Invulnerability>();
+        } else {
+            // TODO: need to change the material on the mesh
+//          if invulnerable.flash_cooldown.tick(time.delta()).just_finished() {
+//              if has_material {
+//                  println!("has material");
+//                  commands.entity(entity).remove::<Handle<StandardMaterial>>();
+//              } else {
+//                  let mut material: StandardMaterial = Color::Rgba { red: 1., green: 1.,blue: 1., alpha: 0.5 }.into();
+//                  material.alpha_mode = AlphaMode::Blend;
+//                  commands.entity(entity).insert(materials.add(material));
+//              }
+//          }
+        }
+    }
+}
+
 fn handle_hit_events(
+    mut commands: Commands,
     mut health_hit_event_reader: EventReader<HealthHitEvent>,
-    mut healths: Query<&mut Health>,
+    mut healths: Query<(Entity, &mut Health), Without<Invulnerability>>,
 ) {
     for event in health_hit_event_reader.read() {
-        if let Ok(mut health) = healths.get_mut(event.entity) {
+        if let Ok((entity, mut health)) = healths.get_mut(event.entity) {
             health.subtract(event.hit_points);
+            commands.entity(entity).insert(Invulnerability::default());
         }
     }
 }
