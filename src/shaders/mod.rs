@@ -10,6 +10,7 @@ pub struct ShaderPlugin;
 impl Plugin for ShaderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(MaterialPlugin::<ScrollingImageMaterial>::default())
+            .add_plugins(MaterialPlugin::<CustomMaterial>::default())
             .add_plugins(MaterialPlugin::<BackgroundMaterial>::default());
     }
 }
@@ -18,6 +19,7 @@ impl Plugin for ShaderPlugin {
 pub struct ShaderMaterials<'w, 's> {
     pub scrolling_images: ResMut<'w, Assets<ScrollingImageMaterial>>,
     pub ingame_backgrounds: ResMut<'w, Assets<BackgroundMaterial>>,
+    pub custom_materials: ResMut<'w, Assets<CustomMaterial>>,
     #[system_param(ignore)]
     phantom: PhantomData<&'s ()>,
 }
@@ -59,5 +61,28 @@ impl Material for BackgroundMaterial {
 
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
+    }
+}
+
+// This struct defines the data that will be passed to your shader
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+pub struct CustomMaterial {
+    #[uniform(0)]
+    pub color: Color,
+    #[texture(1)]
+    #[sampler(2)]
+    pub color_texture: Option<Handle<Image>>,
+    pub alpha_mode: AlphaMode,
+}
+
+/// The Material trait is very configurable, but comes with sensible defaults for all methods.
+/// You only need to implement functions for features that need non-default behavior. See the Material api docs for details!
+impl Material for CustomMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/custom_material.wgsl".into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode
     }
 }

@@ -31,6 +31,8 @@ pub mod command_ext {
                 // Add all loaders here
                 menu::splash::SplashLoader.apply(world);
                 menu::title_screen::loader::TitleScreenLoader.apply(world);
+                menu::controls::loader::ControlsLoader.apply(world);
+                menu::instructions::loader::InstructionsLoader.apply(world);
                 ingame::IngameLoader.apply(world);
                 // return;
             }
@@ -39,6 +41,8 @@ pub mod command_ext {
                 AppState::InGame => ingame::IngameLoader.apply(world),
                 AppState::Splash => menu::splash::SplashLoader.apply(world),
                 AppState::TitleScreen => menu::title_screen::loader::TitleScreenLoader.apply(world),
+                AppState::Controls => menu::controls::loader::ControlsLoader.apply(world),
+                AppState::Instructions => menu::instructions::loader::InstructionsLoader.apply(world),
                 _ => (),
             }
         }

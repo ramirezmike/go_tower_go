@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use crate::{AppState, IngameState};
 use bevy_turborand::prelude::*;
-use super::{controller, path, race, tower};
+use super::{controller, path, race, tower, kart};
 use bevy_xpbd_3d::prelude::*;
 
 #[cfg(feature = "gizmos")]
@@ -68,13 +68,13 @@ impl TowerPlacer {
 
 fn place_towers(
     mut commands: Commands,
-    mut bots: Query<(Entity, &mut Bot, &mut TowerPlacer)>,
+    mut bots: Query<(Entity, &mut Bot, &mut TowerPlacer, &kart::Kart)>,
     waypoints: Query<&race::WayPoint>,
     mut global_rng: ResMut<GlobalRng>,
     path_manager: Res<path::PathManager>,
     time: Res<Time>,
 ) {
-    for (entity, mut b, mut tower_placer) in &mut bots {
+    for (entity, mut b, mut tower_placer, kart) in &mut bots {
         if !b.spawn_delay.tick(time.delta()).finished() {
             continue;
         }
@@ -104,7 +104,8 @@ fn place_towers(
 
                 if (bot_index - start_index) as f32 / finish_index as f32 > tower_placer.min_percentage_into_track {
                     commands.add(tower::TowerSpawner {
-                        entity
+                        entity,
+                        material: kart.1.clone_weak(),
                     });
 
                     b.spawn_delay = Timer::from_seconds(1., TimerMode::Once);
@@ -161,12 +162,12 @@ fn move_bots(
             if dot < -0. {
                 movement_event_writer.send(controller::MovementEvent {
                     entity,
-                    action: controller::MovementAction::Turn(0.1 * dot.abs() + (bot.random / 2.)),
+                    action: controller::MovementAction::Turn(0.1 * dot.abs() + (bot.random * 0.6)),
                 });
             } else if dot > 0. {
                 movement_event_writer.send(controller::MovementEvent {
                     entity,
-                    action: controller::MovementAction::Turn(-0.1 * dot.abs() + (bot.random / 2.)),
+                    action: controller::MovementAction::Turn(-0.1 * dot.abs() + (bot.random * 0.6)),
                 });
             }
 

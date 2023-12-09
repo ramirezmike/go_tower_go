@@ -3,12 +3,13 @@ use bevy::prelude::*;
 pub mod scene_hook;
 pub mod screen_shake;
 pub mod audio;
+pub mod audio_emitter;
 pub mod input;
 
 pub struct UtilPlugin;
 impl Plugin for UtilPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((scene_hook::HookPlugin, audio::GameAudioPlugin, input::InputPlugin));
+        app.add_plugins((scene_hook::HookPlugin, audio::GameAudioPlugin, input::InputPlugin, audio_emitter::AudioEmitterPlugin));
     }
 }
 

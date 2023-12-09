@@ -51,6 +51,8 @@ pub fn handle_input(
     game_assets: Res<assets::GameAssets>,
     mut game_state: ResMut<game_settings::GameState>,
     mut audio: audio::GameAudio,
+    gamepads: Res<Gamepads>,
+    buttons: Res<Input<GamepadButton>>,
     mut axis_timer: Local<Timer>,
     time: Res<Time>,
 ) {
@@ -113,14 +115,24 @@ pub fn handle_input(
     {
         audio.play_sfx(&game_assets.sfx_1);
 
+        let mut controller_type = game_settings::ControllerType::Keyboard;
+        for gamepad in gamepads.iter() {
+            if buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::South }) || 
+               buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::Start }) {
+                   println!("PRessed gamepad");
+                controller_type = game_settings::ControllerType::Gamepad; 
+            }
+        }
+
         const MIN_DIFFICULTY: f32 = 0.5;
         *game_state = game_settings::GameState::initialize(
             setting_state.enable_shadows == 1,
             setting_state.enable_background == 1,
             setting_state.enable_extra_physics == 1,
             setting_state.enable_extra_entities == 1,
+            controller_type
         );
 
-        commands.load_state(AppState::InGame);
+        commands.load_state(AppState::Instructions);
     }
 }

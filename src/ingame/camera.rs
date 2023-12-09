@@ -85,7 +85,7 @@ impl<C: Component + Clone> Command for SpawnCamera<C> {
             .spawn((Camera3dBundle {
                 transform,
                 ..default()
-            },self.cleanup_marker)).id();
+            },self.cleanup_marker, )).id();
 
         if let Some(mut entity) = world.get_entity_mut(shake_id) {
             entity.push_children(&[camera_id]);

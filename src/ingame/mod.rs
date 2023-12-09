@@ -4,6 +4,7 @@ use bevy_turborand::prelude::*;
 use std::f32::consts::TAU;
 use crate::{assets, AppState, util, IngameState, cleanup, shaders};
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
+use bevy_kira_audio::prelude::*;
 
 mod bot;
 mod bullet;
@@ -28,13 +29,21 @@ impl Plugin for InGamePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((camera::CameraPlugin, controller::CharacterControllerPlugin, tower::TowerPlugin, bullet::BulletPlugin, bot::BotPlugin, path::PathPlugin, finish_line::FinishLinePlugin, race::RacePlugin, collisions::CollisionsPlugin, ui::InGameUIPlugin, kart::KartPlugin, particle::ParticlePlugin, common::CommonPlugin,))
             .init_resource::<game_settings::GameState>()
+            .add_systems(Update, game_settings::update_game_state.run_if(in_state(IngameState::InGame)))
             .add_systems(OnExit(AppState::InGame), cleanup::<CleanupMarker>)
+            .add_systems(OnExit(IngameState::InGame), stop_audio)
+            .add_systems(OnEnter(AppState::InGame), stop_audio)
+            .add_systems(OnExit(AppState::Controls), stop_audio)
             .add_systems(OnEnter(AppState::InGame), setup);
 
         if cfg!(feature = "colliders") {
             app.add_plugins(PhysicsDebugPlugin::default());
         }
     }
+}
+
+fn stop_audio(audio: Res<Audio>) {
+    audio.stop();
 }
 
 pub struct IngameLoader;
@@ -59,7 +68,17 @@ impl Command for IngameLoader {
             false,
         );
 
+        assets_handler.add_audio(&mut game_assets.sfx_car, "audio/car_01.ogg");
+        assets_handler.add_audio(&mut game_assets.sfx_car_idle, "audio/car_idle.wav");
+        assets_handler.add_audio(&mut game_assets.sfx_hit, "audio/hit.wav");
+        assets_handler.add_audio(&mut game_assets.sfx_lap, "audio/lap.wav");
+        assets_handler.add_audio(&mut game_assets.sfx_shot, "audio/shot.wav");
+        assets_handler.add_audio(&mut game_assets.sfx_tower, "audio/tower.wav");
+        assets_handler.add_audio(&mut game_assets.bgm_1, "audio/bgm.ogg");
+        assets_handler.add_audio(&mut game_assets.bgm_2, "audio/end_bgm.ogg");
+
         assets_handler.add_standard_mesh(&mut game_assets.smoke, Mesh::from(shape::Plane { size: 0.5, subdivisions: 0 }));
+        assets_handler.add_standard_mesh(&mut game_assets.hit_particle, Mesh::from(shape::Cube { size: 0.25, }));
 
         assets_handler.add_mesh(
             &mut game_assets.cannon.mesh,
@@ -161,14 +180,20 @@ fn setup(
     if game_state.enable_background {
         if let Some(gltf) = assets_gltf.get(&game_assets.skybox) {
             let material = shader_materials
-                .ingame_backgrounds
-                .add(shaders::BackgroundMaterial {
-                    texture: game_assets.background_image.image.clone(),
-                    color: Color::rgba(1., 1., 1., 1.0),
-                    x_scroll_speed: 1.0,
-                    y_scroll_speed: 1.0,
-                    scale: 1.0,
+                .custom_materials
+//              .add(shaders::BackgroundMaterial {
+//                  texture: game_assets.background_image.image.clone(),
+//                  color: Color::rgba(1., 1., 1., 1.0),
+//                  x_scroll_speed: 1.0,
+//                  y_scroll_speed: 1.0,
+//                  scale: 1.0,
+//              });
+                .add(shaders::CustomMaterial {
+                    color: Color::BLUE,
+                    color_texture: Some(game_assets.background_image.image.clone()),
+                    alpha_mode: AlphaMode::Blend,
                 });
+
             let alpha_material = materials.add(StandardMaterial {
                 base_color: Color::rgba(1., 1., 1., 0.),
                 unlit: true,
@@ -186,7 +211,6 @@ fn setup(
                             let name = name.as_str();
 
                             if name.contains("Cube") {
-                                println!(" GOt CUBE");
                                 cmds.insert((
                                     material.clone(),
                                     alpha_material.clone(),

@@ -1,7 +1,8 @@
 use bevy::{prelude::*, ecs::system::{Command,SystemState}};
-use crate::{assets, ingame, AppState};
+use crate::{assets, ingame, AppState, ingame::player};
 use bevy_xpbd_3d::PhysicsSet;
 use bevy::transform::TransformSystem;
+use bevy_kira_audio::prelude::*;
 
 pub struct HealthPlugin;
 impl Plugin for HealthPlugin {
@@ -123,13 +124,17 @@ fn scale_healthbars(
 
 fn healthbar_follow_parent(
     mut commands: Commands,
-    mut healthbars: Query<(Entity, &mut Transform, &HealthBar)>,
+    mut healthbars: Query<(Entity, &mut Transform, &HealthBar, Has<AudioReceiver>)>,
+    audio: Res<Audio>,
     parents: Query<&Transform, Without<HealthBar>>,
 ) {
-    for (entity, mut healthbar_transform, healthbar) in healthbars.iter_mut() {
+    for (entity, mut healthbar_transform, healthbar, has_receiver) in healthbars.iter_mut() {
         if let Ok(parent) = parents.get(healthbar.parent) {
             healthbar_transform.translation = parent.translation + healthbar.offset;
         } else {
+            if has_receiver {
+                audio.stop();
+            }
             commands.entity(entity).despawn_recursive();
         }
     }
@@ -140,7 +145,7 @@ fn handle_healthbar_view(
 ) {
     if let Ok(camera) = camera.get_single() {
         for mut healthbar in healthbars.iter_mut() {
-            healthbar.look_at(camera.translation, Vec3::Y);
+            healthbar.look_at(camera.translation, -Vec3::Y);
         }
     }
 }
@@ -157,7 +162,7 @@ impl<C: Component + Clone> Command for HealthBarSpawner<C> {
         let mut system_state: SystemState<(
             assets::loader::AssetsHandler,
             Res<assets::GameAssets>,
-            Query<(&Transform, )>,
+            Query<(&Transform, Has<player::Player>)>,
         )> = SystemState::new(world);
 
         let (mut assets_handler, game_assets, transforms) = system_state.get_mut(world);
@@ -165,7 +170,7 @@ impl<C: Component + Clone> Command for HealthBarSpawner<C> {
         let green_bar_material = assets_handler.materials.add(Color::GREEN.into()).clone();
         let mesh = game_assets.smoke.clone_weak(); 
 
-        if let Ok((transform, )) = transforms.get(self.parent) {
+        if let Ok((transform, is_player)) = transforms.get(self.parent) {
             let mut transform = transform.clone();
             transform.translation += self.offset;
             let mut healthbar= world.spawn( ( SpatialBundle::from_transform(transform), 
@@ -175,6 +180,10 @@ impl<C: Component + Clone> Command for HealthBarSpawner<C> {
                     },
             ),);
             let healthbar_id = healthbar.id();
+
+            if is_player {
+                healthbar.insert(AudioReceiver);
+            }
             healthbar.with_children(|parent| {
                     parent.spawn((PbrBundle {
                         mesh ,
@@ -189,12 +198,14 @@ impl<C: Component + Clone> Command for HealthBarSpawner<C> {
                 ));
             });
 
+
             if let Some(mut parent) = world.get_entity_mut(self.parent) {
                 parent.insert(Health {
                     health_points: self.health_points,
                     max_health: self.health_points,
                 });
             }
+
         }
     }
 }

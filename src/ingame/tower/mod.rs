@@ -6,6 +6,7 @@ use super::{kart, bullet, config, points, common, player, path};
 use bevy_turborand::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
+use bevy_kira_audio::prelude::*;
 
 #[cfg(feature = "gizmos")]
 use bevy::gizmos::gizmos::Gizmos;
@@ -22,6 +23,7 @@ struct Tower {
     delay_start: Timer,
     action_cooldown: Timer,
     owner: Entity,
+    material: Handle<StandardMaterial>,
     target: Vec3,
     color: Color,
 }
@@ -58,6 +60,7 @@ fn tower_actions(
             commands.add(bullet::BulletSpawner {
                 owner: tower.owner,
                 spawn_point,
+                material: tower.material.clone_weak(),
                 direction: tower.target - spawn_point,
                 color: tower.color,
                 speed: 2.0,
@@ -96,7 +99,9 @@ fn tower_actions(
 pub struct CannonSpawner {
     parent: Entity,
     spawn_point: Vec3,
-    target: Vec3
+    target: Vec3,
+    outline_color: Color,
+    outline_width: f32
 }
 
 impl Command for CannonSpawner {
@@ -128,8 +133,8 @@ impl Command for CannonSpawner {
             OutlineBundle {
                 outline: OutlineVolume {
                     visible: true,
-                    width: 1.0,
-                    colour: Color::BLACK,
+                    width: self.outline_width,
+                    colour: self.outline_color,
                 },
                 mode: OutlineMode::RealVertex,
                 ..default()
@@ -140,6 +145,7 @@ impl Command for CannonSpawner {
 
 pub struct TowerSpawner {
     pub entity: Entity,
+    pub material: Handle<StandardMaterial>,
 }
 impl Command for TowerSpawner {
     fn apply(self, world: &mut World) {
@@ -150,10 +156,11 @@ impl Command for TowerSpawner {
             SpatialQuery,
             ResMut<GlobalRng>,
             Res<path::PathManager>,
+            Res<Audio>,
             Query<(&Transform, &kart::Kart, &mut points::Points, Has<player::Player>)>,
         )> = SystemState::new(world);
 
-        let (mut assets_handler, game_assets, assets_gltf, spatial_query, mut global_rng, path_manager, mut points) = system_state.get_mut(world);
+        let (mut assets_handler, game_assets, assets_gltf, spatial_query, mut global_rng, path_manager, audio, mut points) = system_state.get_mut(world);
 
         if let Ok((transform, kart, mut point, is_player)) = points.get_mut(self.entity) {
             let spawn_point = transform.translation;
@@ -183,10 +190,21 @@ impl Command for TowerSpawner {
                         check_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH),
 
                         // just in case?
-                        check_point + Vec3::new(-config::TRACK_WIDTH + 1., starting_height, 0.0),
+                        check_point + Vec3::new(config::TRACK_WIDTH, starting_height, config::TRACK_WIDTH),
+                        check_point + Vec3::new(config::TRACK_WIDTH, starting_height, -config::TRACK_WIDTH),
+                        check_point + Vec3::new(-config::TRACK_WIDTH, starting_height, -config::TRACK_WIDTH),
+                        check_point + Vec3::new(-config::TRACK_WIDTH, starting_height, config::TRACK_WIDTH),
+
+                        // uhh ok one more just in case?
+                        check_point + Vec3::new(-config::TRACK_WIDTH - 1., starting_height, 0.0),
                         check_point + Vec3::new(config::TRACK_WIDTH + 1., starting_height, 0.0),
-                        check_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH + 1.),
+                        check_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH - 1.),
                         check_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH + 1.),
+
+                        check_point + Vec3::new(config::TRACK_WIDTH + 1., starting_height, config::TRACK_WIDTH + 1.),
+                        check_point + Vec3::new(config::TRACK_WIDTH + 1., starting_height, -config::TRACK_WIDTH - 1.),
+                        check_point + Vec3::new(-config::TRACK_WIDTH - 1., starting_height, -config::TRACK_WIDTH - 1.),
+                        check_point + Vec3::new(-config::TRACK_WIDTH - 1., starting_height, config::TRACK_WIDTH + 1.),
                     );
 
                     for ray in rays_to_cast {
@@ -210,13 +228,19 @@ impl Command for TowerSpawner {
                             let random = global_rng.f32();
                             let kart_color = kart.0;
 
+                            let sfx = audio.play(game_assets.sfx_tower.clone()).with_volume(0.).handle();
+
                             let tower_id = world.spawn((
                                 Tower {
                                     target,
                                     owner: self.entity,
+                                    material: self.material,
                                     color,
                                     delay_start: Timer::from_seconds(random, TimerMode::Once),
                                     action_cooldown:Timer::from_seconds(0.5, TimerMode::Repeating), 
+                                },
+                                AudioEmitter {
+                                    instances: vec![sfx],
                                 },
                                 ingame::CleanupMarker,
                                 common::scaler::Scaler::new(Vec3::splat(1.0), 0.5, 0.0, true),
@@ -246,6 +270,8 @@ impl Command for TowerSpawner {
                             let cannon_spawner = CannonSpawner {
                                 parent: tower_id,
                                 spawn_point,
+                                outline_color: if is_player { kart_color } else { Color::BLACK },
+                                outline_width: if is_player { 8.0 } else { 1.0 },
                                 target
                             };
                             cannon_spawner.apply(world);

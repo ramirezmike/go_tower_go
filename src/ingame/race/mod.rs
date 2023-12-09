@@ -1,5 +1,5 @@
 use bevy::{prelude::*, ecs::system::{Command, SystemState}, };
-use crate::ingame::{path, points, race::placement_sensor::Place};
+use crate::{ingame::{assets, player, path, points, race::placement_sensor::Place}, util::audio};
 use crate::AppState;
 use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy::render::primitives::Aabb;
@@ -79,23 +79,27 @@ pub struct WayPointHitHandler {
 impl Command for WayPointHitHandler {
     fn apply(self, world: &mut World) {
         let mut system_state: SystemState<(
-            Query<(&mut NextWayPoint, &mut LapCounter, &mut points::Points, &Place)>,
-            
+            Query<(&mut NextWayPoint, &mut LapCounter, &mut points::Points, &Place, Has<player::Player>)>,
+            Res<assets::GameAssets>,
+            audio::GameAudio,
         )> = SystemState::new(world);
 
-        let (mut next_waypoints, ) = system_state.get_mut(world);
+        let (mut next_waypoints,game_assets, mut audio) = system_state.get_mut(world);
 
-        if let Ok((mut next_waypoint, mut lap_counter, mut points, place)) = next_waypoints.get_mut(self.entity) {
+        if let Ok((mut next_waypoint, mut lap_counter, mut points, place, is_player)) = next_waypoints.get_mut(self.entity) {
             next_waypoint.0 = match next_waypoint.0 {
-                WayPoints::Start => WayPoints::Quarter,
-                WayPoints::Quarter => WayPoints::Half,
-                WayPoints::Half => WayPoints::Finish,
-                WayPoints::Finish => {
+                WayPoints::Start => {
                     lap_counter.0 += 1;
                     points.0 += 9 - place.0;
+                    if is_player {
+                        audio.play_sfx(&game_assets.sfx_lap);
+                    }
 
-                    WayPoints::Start
+                    WayPoints::Quarter
                 },
+                WayPoints::Quarter => WayPoints::Half,
+                WayPoints::Half => WayPoints::Finish,
+                WayPoints::Finish => WayPoints::Start,
             };
         }
     }

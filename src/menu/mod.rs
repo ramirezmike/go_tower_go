@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
 pub mod splash;
+pub mod controls;
+pub mod instructions;
 pub mod title_screen;
 pub mod settings;
 
@@ -11,6 +13,8 @@ impl Plugin for MenuPlugin {
         app.add_plugins((
             splash::SplashPlugin,
             title_screen::TitlePlugin,
+            controls::ControlsPlugin,
+            instructions::InstructionsPlugin,
             settings::SettingsMenuPlugin,
         ));
     }

@@ -7,10 +7,11 @@ use bevy_turborand::prelude::*;
 use std::f32::consts::TAU;
 use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
-use crate::{assets, util, AppState, IngameState};
+use crate::{util::audio, assets, util, AppState, IngameState};
 use super::{bot, controller, player, config, race, points, game_settings, particle, common, CleanupMarker, bullet, collisions};
 use bevy_xpbd_3d::PhysicsSet;
 use bevy::transform::TransformSystem;
+use bevy_kira_audio::prelude::*;
 
 #[cfg(feature = "gizmos")]
 use bevy::gizmos::gizmos::Gizmos;
@@ -19,7 +20,7 @@ pub struct KartPlugin;
 impl Plugin for KartPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<HitEvent>()
-            .add_systems(Update, (spawn_smoke, handle_hits, upright_karts, animate_karts).run_if(in_state(AppState::InGame)))
+            .add_systems(Update, (spawn_smoke, handle_hits, upright_karts, animate_karts, handle_kart_sounds).run_if(in_state(AppState::InGame)))
 
             .add_systems(
                 PostUpdate,
@@ -31,8 +32,22 @@ impl Plugin for KartPlugin {
     }
 }
 
+fn handle_kart_sounds(
+    karts: Query<(&Kart, &LinearVelocity)>,
+    mut audio_instances: ResMut<Assets<AudioInstance>>,
+) {
+    for (kart, velocity) in &karts {
+        if let Some(instance) = audio_instances.get_mut(&kart.2) {
+            let setting = 1. + velocity.0.length() / 30.;
+            instance.set_playback_rate(setting as f64, AudioTween::default());
+//            instance.set_volume(0.1, AudioTween::default());
+        }
+    }
+
+}
+
 #[derive(Component)]
-pub struct Kart(pub Color);
+pub struct Kart(pub Color, pub Handle<StandardMaterial>, Handle<AudioInstance>);
 
 #[derive(Event)]
 pub struct HitEvent {
@@ -61,6 +76,8 @@ fn handle_deaths(
     mut game_state: ResMut<game_settings::GameState>,
     mut next_ingame_state: ResMut<NextState<IngameState>>,
     mut current_state: ResMut<State<IngameState>>,
+    mut game_audio: audio::GameAudio,
+    audio: Res<Audio>,
 ) {
     let mut player_is_dead = false;
     let mut player_exists= false;
@@ -70,6 +87,7 @@ fn handle_deaths(
                 position: transform.translation,
                 count: config::KART_DIE_HIT_COUNT,
                 with_physics: true,
+                material: kart.1.clone_weak(),
                 color: kart.0,
             });
             commands.entity(entity).despawn_recursive();
@@ -85,12 +103,20 @@ fn handle_deaths(
     {
         if *current_state.get() == IngameState::InGame{
             let player_won = player_exists && karts.iter().len() <= 1;
-            if ((!player_exists || player_is_dead) || player_won) && game_state.player_death_cooldown.tick(time.delta()).finished() {
+            let game_is_over = ((!player_exists || player_is_dead) || player_won);
+            if game_is_over  {
+                game_audio.stop_bgm();
+                audio.stop();
+            }
+
+            if game_is_over && game_state.player_death_cooldown.tick(time.delta()).finished() {
                 if player_won {
                     game_state.ending_state = game_settings::GameEndingState::Winner;
                 } else {
                     game_state.ending_state = game_settings::GameEndingState::Died;
                 }
+                game_audio.stop_bgm();
+                audio.stop();
                 next_ingame_state.set(IngameState::EndGame);
             }
         }
@@ -191,10 +217,11 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
             Res<Assets<Gltf>>,
             ResMut<GlobalRng>,
             ResMut<game_settings::GameState>,
+            Res<Audio>,
             Query<Entity, With<player::Player>>,
         )> = SystemState::new(world);
 
-        let (mut assets_handler, game_assets, assets_gltf, mut global_rng, mut game_state, players) = system_state.get_mut(world);
+        let (mut assets_handler, game_assets, assets_gltf, mut global_rng, mut game_state, audio ,players) = system_state.get_mut(world);
         let matrix = self.global_transform.compute_matrix();
         let spawn_point = matrix.transform_point3(self.aabb.center.into());
         let rand = global_rng.f32_normalized();
@@ -203,6 +230,8 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
         let count_of_spawned_players = players.iter().count();
         let color = game_state.kart_colors.pop().expect("Ran out of colors for the karts");
         let color_material = assets_handler.materials.add(color.into());
+        let color_material_clone = color_material.clone();
+        let cube_mesh = game_assets.hit_particle.clone();
 
         #[cfg(feature = "no_bots")]
         {
@@ -214,10 +243,17 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
         let gltf = assets_gltf.get(&game_assets.car);
         if let Some(gltf) = gltf {
             let scene = gltf.scenes[0].clone();
-            let mut entity = world.spawn(Kart(color));
+            let car_sound= audio
+                .play(game_assets.sfx_car.clone())
+                .with_volume(0.)
+                .looped()
+                .handle();
+            let mut entity = world.spawn(Kart(color, color_material.clone(), car_sound.clone()));
             let kart_id = entity.id();
             entity.insert((
-                Kart(color),
+                AudioEmitter {
+                    instances: vec![car_sound],
+                },
                 util::scene_hook::HookedSceneBundle {
                     scene: SceneBundle {
                         scene,
@@ -261,13 +297,19 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
                 CollisionLayers::new([collisions::Layer::Kart], [collisions::Layer::Ground, collisions::Layer::Kart]),
                 //controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.5), Vector::NEG_Y * 9.81 * 1.5)
                 controller::CommonControllerBundle::new(Collider::cuboid(1.5, 1.0, 1.5), Vector::NEG_Y * 9.81 * 1.5),
-            ));
+            )).with_children(|builder| {
+                builder.spawn((PbrBundle {
+                    mesh: cube_mesh,
+                    material: color_material_clone,
+                    ..Default::default()
+                },));
+            });
 
 
             if count_of_spawned_players >= config::NUMBER_OF_PLAYERS {
                 entity.insert(bot::BotBundle::new(rand, positive_rand));
             } else {
-                entity.insert((player::Player, controller::CharacterControllerKeyboard,));
+                entity.insert((player::Player, controller::CharacterControllerKeyboard, ));
             }
 
             common::health::HealthBarSpawner::<CleanupMarker> {

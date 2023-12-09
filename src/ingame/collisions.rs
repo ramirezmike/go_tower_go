@@ -63,6 +63,7 @@ fn handle_collisions(
                     bullet_hit_event_writer.send(bullet::CreateHitEvent {
                         position: bullet.2.translation,
                         count: config::BULLET_HIT_COUNT,
+                        material: kart.1.1.clone_weak(),
                         with_physics: game_state.enable_extra_physics,
                         color: bullet.1.color,
                     });
@@ -84,6 +85,7 @@ fn handle_collisions(
                 bullet_hit_event_writer.send(bullet::CreateHitEvent {
                     position: bullet.2.translation,
                     count: config::BULLET_HIT_COUNT,
+                    material: bullet.1.material.clone_weak(),
                     with_physics: game_state.enable_extra_physics,
                     color: bullet.1.color,
                 });
