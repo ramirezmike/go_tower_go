@@ -25,8 +25,16 @@ pub struct GameAssets {
 
     pub title_bgm: Handle<AudioSource>,
     pub bgm_1: Handle<AudioSource>,
+    pub bgm_2: Handle<AudioSource>,
     pub sfx_1: Handle<AudioSource>,
     pub sfx_2: Handle<AudioSource>,
+
+    pub sfx_car: Handle<AudioSource>,
+    pub sfx_car_idle: Handle<AudioSource>,
+    pub sfx_hit: Handle<AudioSource>,
+    pub sfx_lap: Handle<AudioSource>,
+    pub sfx_shot: Handle<AudioSource>,
+    pub sfx_tower: Handle<AudioSource>,
 
     pub car: Handle<Gltf>,
     pub track: Handle<Gltf>,
@@ -39,8 +47,13 @@ pub struct GameAssets {
     pub title_screen_logo: GameTexture,
     pub smoke_image: GameTexture,
     pub smoke: Handle<Mesh>,
+    pub hit_particle: Handle<Mesh>,
 
     pub drive_animation: Handle<AnimationClip>,
+
+    pub controls_gamepad: GameTexture,
+    pub controls_keyboard: GameTexture,
+    pub instructions: GameTexture,
 }
 
 #[derive(Default)]

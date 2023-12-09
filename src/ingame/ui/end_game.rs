@@ -1,6 +1,7 @@
 use bevy::prelude::*;
-use crate::{assets::GameAssets, cleanup, ui, IngameState, ingame::{player, race, kart, points, game_settings}, AppState};
+use crate::{assets::GameAssets, cleanup, ui, IngameState, ingame::{player, race, kart, points, game_settings}, AppState, util::audio};
 use crate::assets::command_ext::*;
+use std::time::Duration;
 
 pub struct EndGamePlugin;
 impl Plugin for EndGamePlugin {
@@ -19,17 +20,24 @@ fn handle_input(
     keyboard_input: Res<Input<KeyCode>>,
     gamepads: Res<Gamepads>,
     buttons: Res<Input<GamepadButton>>,
+    mut cooldown: Local<f32>,
+    time: Res<Time>,
 ) {
-    for gamepad in gamepads.iter() {
-        if buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::South }) || 
-           buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::Start }) {
+    *cooldown += time.delta_seconds();
+    *cooldown = cooldown.max(10.);
+    if *cooldown > 1. {
+        for gamepad in gamepads.iter() {
+            if buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::South }) || 
+               buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::Start }) {
+                commands.load_state(AppState::Splash);
+                *cooldown = 0.
+            }
+        }
+
+        if keyboard_input.any_pressed([KeyCode::Return, KeyCode::Space, ]) {
+            *cooldown = 0.;
             commands.load_state(AppState::Splash);
         }
-    }
-
-    if keyboard_input.any_pressed([KeyCode::Return, KeyCode::Space, KeyCode::Up ]) {
-
-        commands.load_state(AppState::Splash);
     }
 }
 
@@ -40,6 +48,8 @@ fn setup(
     window_size: Res<ui::text_size::WindowSize>,
     text_scaler: ui::text_size::TextScaler,
     game_state: Res<game_settings::GameState>,
+    mut audio: audio::GameAudio,
+    karts: Query<Entity, With<kart::Kart>>,
 ) {
     let root_node = 
     commands
@@ -66,7 +76,7 @@ fn setup(
                 position_type: PositionType::Relative,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,
-                flex_direction: FlexDirection::Row,
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
             background_color: BackgroundColor(Color::rgba(1., 1., 1., 0.7)),
@@ -106,6 +116,79 @@ fn setup(
                 },
             ));
 
+        })
+        .id();
+
+    let center_text_container =  commands
+        .spawn((NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(80.0),
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            ..default()
+        },))
+        .with_children(|builder| {
+            let number_of_racers = karts.iter().len() + if game_state.ending_state != game_settings::GameEndingState::Winner { 1 } else { 0 };
+            builder.spawn((
+                TextBundle {
+                    text: Text::from_section(
+                        format!("Time: {:02}:{:02}", game_state.game_time as isize / 60, game_state.game_time as isize % 60),
+                        TextStyle {
+                            font: game_assets.font.clone(),
+                            font_size: text_scaler.scale(ui::DEFAULT_FONT_SIZE),
+                            color: Color::BLACK,
+                        },
+                    ),
+                    ..default()
+                },
+            ));
+
+            builder.spawn((
+                TextBundle {
+                    text: Text::from_section(
+                        format!("Place: {} / {}", game_state.player_place, number_of_racers),
+                        TextStyle {
+                            font: game_assets.font.clone(),
+                            font_size: text_scaler.scale(ui::DEFAULT_FONT_SIZE),
+                            color: Color::BLACK,
+                        },
+                    ),
+                    ..default()
+                },
+            ));
+
+            builder.spawn((
+                TextBundle {
+                    text: Text::from_section(
+                        format!("Laps: {}", game_state.player_lap),
+                        TextStyle {
+                            font: game_assets.font.clone(),
+                            font_size: text_scaler.scale(ui::DEFAULT_FONT_SIZE),
+                            color: Color::BLACK,
+                        },
+                    ),
+                    ..default()
+                },
+            ));
+
+            builder.spawn((
+                TextBundle {
+                    text: Text::from_section(
+                        format!("Peak Entity Count: {}", game_state.peak_number_of_entities),
+                        TextStyle {
+                            font: game_assets.font.clone(),
+                            font_size: text_scaler.scale(ui::DEFAULT_FONT_SIZE),
+                            color: Color::BLACK,
+                        },
+                    ),
+                    ..default()
+                },
+            ));
         })
         .id();
 
@@ -158,6 +241,9 @@ fn setup(
                 }).id();
 
     commands.entity(main_container).add_child(top_text_container);
+    commands.entity(main_container).add_child(center_text_container);
     commands.entity(main_container).add_child(menu_button);
     commands.entity(root_node).add_child(main_container);
+
+    audio.play_bgm(&game_assets.bgm_2);
 }

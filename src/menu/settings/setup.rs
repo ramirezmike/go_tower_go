@@ -25,7 +25,7 @@ pub fn setup(
         setting_state.enable_shadows = 1;
         setting_state.enable_background = 1;
         setting_state.enable_extra_physics = 1;
-        setting_state.enable_extra_entities = 1;
+        setting_state.enable_extra_entities = 0;
     }
 
     setting_state.selected_setting = Settings::Go;

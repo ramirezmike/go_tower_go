@@ -74,6 +74,8 @@ pub enum AppState {
     #[default]
     Initial,
     Loading,
+    Controls,
+    Instructions,
     TitleScreen,
     Splash,
     Settings,
@@ -94,6 +96,7 @@ fn bootstrap(mut commands: Commands, mut clear_color: ResMut<ClearColor>) {
     clear_color.0 = Color::hex("FFFFFF").unwrap();
     #[cfg(feature = "debug")]
     {
+        clear_color.0 = Color::hex("000000").unwrap();
         commands.load_state(AppState::InGame);
     }
 

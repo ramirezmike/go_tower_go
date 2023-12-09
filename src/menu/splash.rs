@@ -1,6 +1,6 @@
 use crate::assets::command_ext::*;
 use crate::{
-    assets::loader::AssetsHandler, assets, cleanup, ui, ui::text_size, AppState, IngameState,
+    assets::loader::AssetsHandler, assets, cleanup, ui, ui::text_size, AppState, IngameState, util::audio,
 };
 use bevy::prelude::*;
 
@@ -25,6 +25,7 @@ impl Command for SplashLoader {
         let (mut assets_handler, mut game_assets) = system_state.get_mut(world);
 
         assets_handler.add_font(&mut game_assets.font, "fonts/monogram.ttf");
+        assets_handler.add_audio(&mut game_assets.title_bgm, "audio/title.ogg");
         assets_handler.add_material(&mut game_assets.bevy_icon, "textures/bevy.png", true);
     }
 }
@@ -51,7 +52,9 @@ fn setup(
     text_scaler: text_size::TextScaler,
     mut splash_tracker: ResMut<SplashTracker>,
     mut next_ingame_state: ResMut<NextState<IngameState>>,
+    mut audio: audio::GameAudio,
 ) {
+    audio.stop_bgm();
     splash_tracker.time = 0.0;
 
     next_ingame_state.set(IngameState::Disabled);
@@ -110,4 +113,6 @@ fn setup(
                 ..default()
             });
         });
+
+    audio.play_bgm(&game_assets.title_bgm);
 }

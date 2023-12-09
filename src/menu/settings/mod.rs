@@ -19,7 +19,7 @@ impl Plugin for SettingsMenuPlugin {
             .init_resource::<SettingsMenuState>()
             .add_systems(
                 Update,
-                (highlight_selection, handle_input, update_values)
+                (highlight_selection, handle_input, update_values, )
                     .run_if(in_state(AppState::Settings)),
             )
             .add_systems(OnExit(AppState::Settings), cleanup::<CleanupMarker>);
@@ -30,3 +30,4 @@ impl Plugin for SettingsMenuPlugin {
 struct CleanupMarker;
 #[derive(Component)]
 pub struct SettingDisplayMarker;
+
