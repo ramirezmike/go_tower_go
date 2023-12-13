@@ -21,7 +21,17 @@ fn main() {
 
     #[cfg(not(feature = "web"))]
     {
-       app.add_plugins(DefaultPlugins);
+        if cfg!(feature = "steam_deck") {
+            app.add_plugins(DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: (1280., 800.).into(),
+                    ..default()
+                }),
+                ..default()
+            }));
+        } else {
+            app.add_plugins(DefaultPlugins);
+        }
     }
 
     #[cfg(feature = "web")]

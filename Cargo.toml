@@ -11,6 +11,7 @@ colliders = []
 gizmos = []
 no_bots = []
 web = []
+steam_deck = []
 
 [profile.dev]
 opt-level = 1
