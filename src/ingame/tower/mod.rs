@@ -35,7 +35,7 @@ struct Cannon {
 
 fn tower_actions(
     mut commands: Commands,
-    mut towers: Query<(Entity, &mut Tower, &Transform)>,
+    mut towers: Query<(Entity, &mut Tower, &Transform, &kart::KartColor)>,
     cannons: Query<(Entity, &Cannon)>,
     time: Res<Time>,
     spatial_query: SpatialQuery,
@@ -43,7 +43,7 @@ fn tower_actions(
     #[cfg(feature = "gizmos")]
     mut gizmos: Gizmos,
 ) {
-    for (tower_entity, mut tower, tower_transform) in &mut towers {
+    for (tower_entity, mut tower, tower_transform, kart_color) in &mut towers {
         if !tower.delay_start.tick(time.delta()).finished() {
             continue;
         }
@@ -63,6 +63,7 @@ fn tower_actions(
                 material: tower.material.clone_weak(),
                 direction: tower.target - spawn_point,
                 color: tower.color,
+                kart_color: *kart_color,
                 speed: 2.0,
                 cleanup_marker: ingame::CleanupMarker,
             });
@@ -157,19 +158,19 @@ impl Command for TowerSpawner {
             ResMut<GlobalRng>,
             Res<path::PathManager>,
             Res<Audio>,
-            Query<(&Transform, &kart::Kart, &mut points::Points, Has<player::Player>)>,
+            Query<(&Transform, &kart::Kart, &kart::KartColor, &mut points::Points, Has<player::Player>)>,
         )> = SystemState::new(world);
 
         let (mut assets_handler, game_assets, assets_gltf, spatial_query, mut global_rng, path_manager, audio, mut points) = system_state.get_mut(world);
 
-        if let Ok((transform, kart, mut point, is_player)) = points.get_mut(self.entity) {
+        if let Ok((transform, kart, kart_color, mut point, is_player)) = points.get_mut(self.entity) {
             let spawn_point = transform.translation;
-            let cost = 4; 
+            let cost = if cfg!(feature = "endless") { 0 } else { 4 }; 
             if point.0 >= cost {
                 let color = kart.0;
                 let gltf = assets_gltf.get(&game_assets.tower_01);
                 if let Some(gltf) = gltf {
-                    let scene = gltf.scenes[0].clone();
+                    let scene = gltf.scenes[0].clone_weak();
                     let starting_height = 5.0;
 
                     let check_point = 
@@ -226,7 +227,8 @@ impl Command for TowerSpawner {
 
                             point.0 -= cost;
                             let random = global_rng.f32();
-                            let kart_color = kart.0;
+                            let tower_color = kart.0;
+                            let kart_color = kart_color.clone();
 
                             let sfx = audio.play(game_assets.sfx_tower.clone()).with_volume(0.).handle();
 
@@ -239,6 +241,7 @@ impl Command for TowerSpawner {
                                     delay_start: Timer::from_seconds(random, TimerMode::Once),
                                     action_cooldown:Timer::from_seconds(0.5, TimerMode::Repeating), 
                                 },
+                                kart_color,
                                 AudioEmitter {
                                     instances: vec![sfx],
                                 },
@@ -257,7 +260,7 @@ impl Command for TowerSpawner {
                                                 outline: OutlineVolume {
                                                     visible: true,
                                                     width: if is_player { 8.0 } else { 1.0 },
-                                                    colour: if is_player { kart_color } else { Color::BLACK },
+                                                    colour: if is_player { tower_color } else { Color::BLACK },
                                                 },
                                                 mode: OutlineMode::RealVertex,
                                                 ..default()
@@ -270,7 +273,7 @@ impl Command for TowerSpawner {
                             let cannon_spawner = CannonSpawner {
                                 parent: tower_id,
                                 spawn_point,
-                                outline_color: if is_player { kart_color } else { Color::BLACK },
+                                outline_color: if is_player { tower_color } else { Color::BLACK },
                                 outline_width: if is_player { 8.0 } else { 1.0 },
                                 target
                             };

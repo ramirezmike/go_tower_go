@@ -32,7 +32,7 @@ fn follow_player(
 ) {
     for mut c_transform in &mut cameras {
         for (player_transform, linear_velocity) in &players {
-            let new_translation = player_transform.translation + (player_transform.back() * 10.0) + Vec3::new(0., 2.7, 0.);
+            let new_translation = player_transform.translation + (player_transform.back() * 20.0) + Vec3::new(0., 8.0, 0.);
             let diff = new_translation - c_transform.translation;
             // try to slow down Y changes
             let y_speed = 2.;

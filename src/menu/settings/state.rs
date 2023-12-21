@@ -8,22 +8,12 @@ pub struct SettingsMenuState {
     pub selected_setting: Settings,
     pub enable_shadows: isize,
     pub enable_background: isize,
-    pub enable_extra_physics: isize,
-    pub enable_extra_entities: isize,
 }
 
 impl SettingsMenuState {
     pub fn display(&self, setting: &Settings) -> String {
         match setting {
             Settings::EnableBackground => match self.enable_background {
-                1 => "     On     ".to_string(),
-                _ => "     Off    ".to_string(),
-            },
-            Settings::EnableExtraPhysics => match self.enable_extra_physics {
-                1 => "     On     ".to_string(),
-                _ => "     Off    ".to_string(),
-            },
-            Settings::EnableExtraEntities => match self.enable_extra_entities {
                 1 => "     On     ".to_string(),
                 _ => "     Off    ".to_string(),
             },
@@ -43,12 +33,6 @@ impl SettingsMenuState {
             Settings::EnableBackground  => {
                 self.enable_background = self.enable_background.circular_increment(0, 1);
             },
-            Settings::EnableExtraEntities => {
-                self.enable_extra_entities = self.enable_extra_entities.circular_increment(0, 1);
-            },
-            Settings::EnableExtraPhysics => {
-                self.enable_extra_physics = self.enable_extra_physics.circular_increment(0, 1);
-            },
             _ => (),
         }
     }
@@ -61,12 +45,6 @@ impl SettingsMenuState {
             Settings::EnableBackground  => {
                 self.enable_background = self.enable_background.circular_decrement(0, 1);
             },
-            Settings::EnableExtraEntities => {
-                self.enable_extra_entities = self.enable_extra_entities.circular_decrement(0, 1);
-            },
-            Settings::EnableExtraPhysics => {
-                self.enable_extra_physics = self.enable_extra_physics.circular_decrement(0, 1);
-            },
             _ => (),
         }
     }
@@ -77,17 +55,13 @@ pub enum Settings {
     #[default]
     EnableShadows,
     EnableBackground,
-    EnableExtraPhysics,
-    EnableExtraEntities, 
     Go,
 }
 
-impl MenuOption<5> for Settings {
-    const ITEM: [Settings; 5] = [
+impl MenuOption<3> for Settings {
+    const ITEM: [Settings; 3] = [
         Settings::EnableShadows,
         Settings::EnableBackground,
-        Settings::EnableExtraPhysics,
-        Settings::EnableExtraEntities,
         Settings::Go,
     ];
 
@@ -95,8 +69,6 @@ impl MenuOption<5> for Settings {
         match self {
             Settings::EnableShadows => "Shadows",
             Settings::EnableBackground => "Background",
-            Settings::EnableExtraPhysics => "Extra Physics",
-            Settings::EnableExtraEntities => "Extra Entities",
             Settings::Go => "Go!",
         }
     }

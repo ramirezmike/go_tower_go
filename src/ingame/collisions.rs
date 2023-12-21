@@ -1,7 +1,7 @@
-use bevy::{prelude::*, ecs::system::{Command, SystemState}, };
+use bevy::{prelude::*, ecs::system::{Command, SystemState}, render::view::VisibleEntities, };
 use crate::{AppState, util};
 use bevy_xpbd_3d::{math::*, prelude::*};
-use super::{race, bullet, kart, player, common::{self, health::Invulnerability}, config, game_settings};
+use super::{race, bullet, kart, player, assets, common::{self, health::Invulnerability}, config, game_settings};
 
 pub struct CollisionsPlugin;
 impl Plugin for CollisionsPlugin {
@@ -20,15 +20,17 @@ pub enum Layer {
 
 fn handle_collisions(
     mut commands: Commands,
+    game_assets: Res<assets::GameAssets>,
     mut game_state: ResMut<game_settings::GameState>,
     mut collision_event_reader: EventReader<Collision>,
     mut hit_event_writer: EventWriter<kart::HitEvent>,
     mut bullet_hit_event_writer: EventWriter<bullet::CreateHitEvent>,
     mut health_hit_event_writer: EventWriter<common::health::HealthHitEvent>,
+    visibile_entities: Query<&VisibleEntities, With<Camera>>,
     waypoints: Query<(Entity, &race::WayPoint)>,
     waypoint_trackers: Query<(Entity, &race::NextWayPoint)>,
     bullets: Query<(Entity, &bullet::Bullet, &Transform)>,
-    karts: Query<(Entity, &kart::Kart, Has<player::Player>), Without<Invulnerability>>,
+    karts: Query<(Entity, &kart::Kart, Has<player::Player>, &kart::KartColor), Without<Invulnerability>>,
     tracks: Query<(Entity, With<super::Track>)>
 ) {
     for Collision(contacts) in collision_event_reader.read() {
@@ -51,6 +53,7 @@ fn handle_collisions(
             (Ok(bullet), Ok(kart), _, _) | 
             (_, _, Ok(bullet), Ok(kart)) => {
                 if bullet.1.owner != kart.0 {
+                    let bullet_is_visible = visibile_entities.iter().any(|x| x.entities.contains(&bullet.0));
                     commands.entity(bullet.0).despawn_recursive();
                     hit_event_writer.send(kart::HitEvent {
                         entity: kart.0,
@@ -60,13 +63,15 @@ fn handle_collisions(
                         entity: kart.0,
                         hit_points: 1
                     });
-                    bullet_hit_event_writer.send(bullet::CreateHitEvent {
-                        position: bullet.2.translation,
-                        count: config::BULLET_HIT_COUNT,
-                        material: kart.1.1.clone_weak(),
-                        with_physics: game_state.enable_extra_physics,
-                        color: bullet.1.color,
-                    });
+                    
+                    if bullet_is_visible {
+                        bullet_hit_event_writer.send(bullet::CreateHitEvent {
+                            position: bullet.2.translation,
+                            count: config::BULLET_HIT_COUNT,
+                            material: game_assets.kart_colors[&kart.3.0].clone_weak(),
+                            color: bullet.1.color,
+                        });
+                    }
 
                     if kart.2 { // is player
                         commands.add(util::screen_shake::CameraShake::default());
@@ -82,13 +87,15 @@ fn handle_collisions(
                bullets.get(contacts.entity2), tracks.get(contacts.entity1)) {
             (Ok(bullet), Ok(track), _, _) | 
             (_, _, Ok(bullet), Ok(track)) => {
-                bullet_hit_event_writer.send(bullet::CreateHitEvent {
-                    position: bullet.2.translation,
-                    count: config::BULLET_HIT_COUNT,
-                    material: bullet.1.material.clone_weak(),
-                    with_physics: game_state.enable_extra_physics,
-                    color: bullet.1.color,
-                });
+                let bullet_is_visible = visibile_entities.iter().any(|x| x.entities.contains(&bullet.0));
+                if bullet_is_visible {
+                    bullet_hit_event_writer.send(bullet::CreateHitEvent {
+                        position: bullet.2.translation,
+                        count: config::BULLET_HIT_COUNT,
+                        material: bullet.1.material.clone_weak(),
+                        color: bullet.1.color,
+                    });
+                }
                 commands.entity(bullet.0).despawn_recursive();
             },
             _ => ()

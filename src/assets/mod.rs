@@ -1,4 +1,5 @@
 use bevy::{prelude::*, gltf::Gltf};
+use std::collections::HashMap;
 
 pub mod loader;
 mod loader_ext;
@@ -43,17 +44,28 @@ pub struct GameAssets {
     pub bevy_icon: GameTexture,
     pub skybox: Handle<Gltf>,
     pub background_image: GameTexture,
+    pub kart_colors: HashMap<usize, Handle<StandardMaterial>>,
 
     pub title_screen_logo: GameTexture,
     pub smoke_image: GameTexture,
     pub smoke: Handle<Mesh>,
     pub hit_particle: Handle<Mesh>,
+    pub bullet_mesh: Handle<Mesh>,
 
     pub drive_animation: Handle<AnimationClip>,
 
     pub controls_gamepad: GameTexture,
     pub controls_keyboard: GameTexture,
     pub instructions: GameTexture,
+}
+
+impl GameAssets {
+    pub fn add_kart_color(&mut self, material: Handle<StandardMaterial>) -> usize {
+        let length = self.kart_colors.len();
+        self.kart_colors.insert(length, material);
+
+        length
+    }
 }
 
 #[derive(Default)]

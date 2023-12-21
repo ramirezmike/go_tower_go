@@ -9,8 +9,6 @@ pub struct GameState {
     pub ending_state: GameEndingState,
     pub enable_shadows: bool,
     pub enable_background: bool,
-    pub enable_extra_physics: bool,
-    pub enable_extra_entities: bool,
     pub game_time: f32,
     pub peak_number_of_entities: usize,
     pub player_place: usize,
@@ -33,9 +31,9 @@ pub enum GameEndingState {
 }
 
 impl GameState {
-    pub fn initialize(enable_shadows: bool, enable_background: bool, enable_extra_physics: bool, enable_extra_entities: bool, controller_type: ControllerType) -> Self {
+    pub fn initialize(enable_shadows: bool, enable_background: bool, controller_type: ControllerType) -> Self {
         GameState {
-            enable_shadows, enable_background, enable_extra_physics, enable_extra_entities, controller_type,
+            enable_shadows, enable_background, controller_type,
             ..default()
         }
     }
@@ -53,15 +51,12 @@ impl Default for GameState {
                 Color::hex("F2CC8F").unwrap(),
                 Color::hex("A0E2B1").unwrap(),
                 Color::hex("d84546").unwrap(),
-
             ),
             pregame_cooldown: Timer::from_seconds(6., TimerMode::Once),
             player_death_cooldown: Timer::from_seconds(2., TimerMode::Once),
             ending_state: GameEndingState::Initial,
             enable_shadows: true,
             enable_background: true,
-            enable_extra_physics: true,
-            enable_extra_entities: false,
             game_time: 0.,
             peak_number_of_entities: 0,
             player_place: 0,

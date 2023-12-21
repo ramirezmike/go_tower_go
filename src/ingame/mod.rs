@@ -1,4 +1,4 @@
-use bevy::{prelude::*, ecs::system::{Command, SystemState}, gltf::Gltf, };
+use bevy::{prelude::*, ecs::system::{Command, SystemState}, gltf::Gltf, render::view::VisibleEntities, };
 use bevy_xpbd_3d::{math::*, prelude::*};
 use bevy_turborand::prelude::*;
 use std::f32::consts::TAU;
@@ -79,6 +79,7 @@ impl Command for IngameLoader {
 
         assets_handler.add_standard_mesh(&mut game_assets.smoke, Mesh::from(shape::Plane { size: 0.5, subdivisions: 0 }));
         assets_handler.add_standard_mesh(&mut game_assets.hit_particle, Mesh::from(shape::Cube { size: 0.25, }));
+        assets_handler.add_standard_mesh(&mut game_assets.bullet_mesh, shape::UVSphere { radius: 1.0, sectors: 3, stacks: 6 }.into());
 
         assets_handler.add_mesh(
             &mut game_assets.cannon.mesh,
@@ -117,7 +118,21 @@ fn setup(
                                 RigidBody::Static,
                                 Track,
                                 Collider::trimesh_from_mesh(mesh).unwrap(), 
+                                OutlineBundle {
+                                    outline: OutlineVolume {
+                                        visible: true,
+                                        width: 1.0,
+                                        colour: Color::BLACK,
+                                    },
+                                    mode: OutlineMode::RealVertex,
+                                    ..default()
+                                },
                                 CollisionLayers::new([collisions::Layer::Ground], [collisions::Layer::Kart, collisions::Layer::Bullet]),
+                            ));
+                        }
+
+                        if name.contains("outline") {
+                            cmds.insert((
                                 OutlineBundle {
                                     outline: OutlineVolume {
                                         visible: true,

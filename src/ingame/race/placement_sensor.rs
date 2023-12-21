@@ -100,16 +100,19 @@ fn detect_racer_places(
         commands.entity(*e).insert(Place(i + 1));
 
         if *lap < furthest_lap.saturating_sub(1) { // kart fell behind
-            health_hit_event_writer.send(common::health::HealthHitEvent {
-                entity: *e,
-                hit_points: 10
-            });
+            #[cfg(not(feature = "endless"))]
+            {
+                health_hit_event_writer.send(common::health::HealthHitEvent {
+                    entity: *e,
+                    hit_points: 10
+                });
 
-            if *is_player {
-                audio.stop();
-                game_audio.stop_bgm();
-                game_state.ending_state = game_settings::GameEndingState::FellBehind;
-                next_ingame_state.set(IngameState::EndGame);
+                if *is_player {
+                    audio.stop();
+                    game_audio.stop_bgm();
+                    game_state.ending_state = game_settings::GameEndingState::FellBehind;
+                    next_ingame_state.set(IngameState::EndGame);
+                }
             }
         }
     }

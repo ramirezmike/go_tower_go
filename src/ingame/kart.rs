@@ -37,7 +37,7 @@ fn handle_kart_sounds(
     mut audio_instances: ResMut<Assets<AudioInstance>>,
 ) {
     for (kart, velocity) in &karts {
-        if let Some(instance) = audio_instances.get_mut(&kart.2) {
+        if let Some(instance) = audio_instances.get_mut(&kart.1) {
             let setting = 1. + velocity.0.length() / 30.;
             instance.set_playback_rate(setting as f64, AudioTween::default());
 //            instance.set_volume(0.1, AudioTween::default());
@@ -47,7 +47,7 @@ fn handle_kart_sounds(
 }
 
 #[derive(Component)]
-pub struct Kart(pub Color, pub Handle<StandardMaterial>, Handle<AudioInstance>);
+pub struct Kart(pub Color, Handle<AudioInstance>);
 
 #[derive(Event)]
 pub struct HitEvent {
@@ -70,10 +70,11 @@ impl Default for Smoker {
 
 fn handle_deaths(
     mut commands: Commands,
-    karts: Query<(Entity, &Transform, &common::health::Health, &Kart,Has<player::Player>), >,
+    karts: Query<(Entity, &Transform, &common::health::Health, &Kart, &KartColor, Has<player::Player>), >,
     mut bullet_hit_event_writer: EventWriter<bullet::CreateHitEvent>,
     time: Res<Time>,
     mut game_state: ResMut<game_settings::GameState>,
+    game_assets: Res<assets::GameAssets>,
     mut next_ingame_state: ResMut<NextState<IngameState>>,
     mut current_state: ResMut<State<IngameState>>,
     mut game_audio: audio::GameAudio,
@@ -81,13 +82,12 @@ fn handle_deaths(
 ) {
     let mut player_is_dead = false;
     let mut player_exists= false;
-    for (entity, transform, health, kart, is_player) in &karts {
+    for (entity, transform, health, kart, kart_color, is_player) in &karts {
         if health.is_dead() {
             bullet_hit_event_writer.send(bullet::CreateHitEvent {
                 position: transform.translation,
                 count: config::KART_DIE_HIT_COUNT,
-                with_physics: true,
-                material: kart.1.clone_weak(),
+                material: game_assets.kart_colors[&kart_color.0].clone_weak(),
                 color: kart.0,
             });
             commands.entity(entity).despawn_recursive();
@@ -201,6 +201,9 @@ fn animate_karts(
     }
 }
 
+#[derive(Component, Copy, Clone)]
+pub struct KartColor(pub usize);
+
 #[derive(Component)]
 struct KartAnimationMarker;
 
@@ -213,7 +216,7 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
     fn apply(self, world: &mut World) {
         let mut system_state: SystemState<(
             assets::loader::AssetsHandler,
-            Res<assets::GameAssets>,
+            ResMut<assets::GameAssets>,
             Res<Assets<Gltf>>,
             ResMut<GlobalRng>,
             ResMut<game_settings::GameState>,
@@ -221,7 +224,7 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
             Query<Entity, With<player::Player>>,
         )> = SystemState::new(world);
 
-        let (mut assets_handler, game_assets, assets_gltf, mut global_rng, mut game_state, audio ,players) = system_state.get_mut(world);
+        let (mut assets_handler, mut game_assets, assets_gltf, mut global_rng, mut game_state, audio ,players) = system_state.get_mut(world);
         let matrix = self.global_transform.compute_matrix();
         let spawn_point = matrix.transform_point3(self.aabb.center.into());
         let rand = global_rng.f32_normalized();
@@ -229,9 +232,11 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
 
         let count_of_spawned_players = players.iter().count();
         let color = game_state.kart_colors.pop().expect("Ran out of colors for the karts");
-        let color_material = assets_handler.materials.add(color.into());
-        let color_material_clone = color_material.clone();
-        let cube_mesh = game_assets.hit_particle.clone();
+        let kart_material = assets_handler.materials.add(color.into());
+        let kart_color = KartColor(game_assets.add_kart_color(kart_material));
+        let color_material = game_assets.kart_colors[&kart_color.0].clone_weak();
+        let color_material_clone = color_material.clone_weak();
+        let cube_mesh = game_assets.hit_particle.clone_weak();
 
         #[cfg(feature = "no_bots")]
         {
@@ -248,7 +253,7 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
                 .with_volume(0.)
                 .looped()
                 .handle();
-            let mut entity = world.spawn(Kart(color, color_material.clone(), car_sound.clone()));
+            let mut entity = world.spawn((Kart(color, car_sound.clone()), kart_color));
             let kart_id = entity.id();
             entity.insert((
                 AudioEmitter {
@@ -262,7 +267,7 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
                     },
                     hook: util::scene_hook::SceneHook::new(move |cmds, hook_data| {
                         if let Some(_) = hook_data.mesh {
-                            cmds.insert((
+                            cmds.insert(
                             OutlineBundle {
                                 outline: OutlineVolume {
                                     visible: true,
@@ -271,12 +276,12 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
                                 },
                                 mode: OutlineMode::RealVertex,
                                 ..default()
-                            }));
+                            });
                         }
 
                         if let Some(name) = hook_data.name {
                             if name.contains("color") {
-                                cmds.insert(color_material.clone());
+                                cmds.insert(color_material_clone.clone());
                             }
                             if name.contains("Armature") {
                                 cmds.insert((
@@ -298,11 +303,11 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
                 //controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.5), Vector::NEG_Y * 9.81 * 1.5)
                 controller::CommonControllerBundle::new(Collider::cuboid(1.5, 1.0, 1.5), Vector::NEG_Y * 9.81 * 1.5),
             )).with_children(|builder| {
-                builder.spawn((PbrBundle {
-                    mesh: cube_mesh,
-                    material: color_material_clone,
-                    ..Default::default()
-                },));
+//              builder.spawn((PbrBundle {
+//                  mesh: cube_mesh,
+//                  material: color_material,
+//                  ..Default::default()
+//              },));
             });
 
 

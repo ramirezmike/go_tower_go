@@ -1,7 +1,7 @@
 // Adapted from bevy_xpbd_3d 🙏🙏🙏🙏🙏  
 use bevy::{ecs::query::Has, prelude::*};
 use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
-use crate::{ingame::kart, ingame::config, ingame::tower, AppState, IngameState, ingame::path, ingame::player};
+use crate::{ingame::kart, ingame::assets, ingame::config, ingame::tower, AppState, IngameState, ingame::path, ingame::player};
 use bevy::input::gamepad::GamepadButtonType;
 
 pub struct CharacterControllerPlugin;
@@ -177,20 +177,21 @@ impl CommonControllerBundle {
 fn keyboard_input(
     mut commands: Commands,
     mut movement_event_writer: EventWriter<MovementEvent>,
+    game_assets: Res<assets::GameAssets>,
     keyboard_input: Res<Input<KeyCode>>,
-    keyboard_player: Query<(Entity, &kart::Kart), With<CharacterControllerKeyboard>>,
+    keyboard_player: Query<(Entity, &kart::KartColor), With<CharacterControllerKeyboard>>,
 ) {
-    for (entity, kart) in &keyboard_player {
-        let up = keyboard_input.any_pressed([KeyCode::K, KeyCode::Up]);
-        let down = keyboard_input.any_pressed([KeyCode::J, KeyCode::Down]);
-        let left = keyboard_input.any_pressed([KeyCode::A, ]);
-        let right = keyboard_input.any_pressed([KeyCode::D, ]);
+    for (entity, kart_color) in &keyboard_player {
+        let up = keyboard_input.any_pressed([KeyCode::W, KeyCode::Z, KeyCode::Up]);
+        let down = keyboard_input.any_pressed([KeyCode::S, KeyCode::Down]);
+        let left = keyboard_input.any_pressed([KeyCode::A, KeyCode::Q, KeyCode::Left]);
+        let right = keyboard_input.any_pressed([KeyCode::D, KeyCode::Right]);
 
-        let right_trigger = keyboard_input.just_pressed(KeyCode::L) || keyboard_input.just_pressed(KeyCode::Right) || keyboard_input.just_pressed(KeyCode::Space);
-        let left_trigger = keyboard_input.just_pressed(KeyCode::H) || keyboard_input.just_pressed(KeyCode::Left);
+        let right_trigger = keyboard_input.just_pressed(KeyCode::Space);
+        let left_trigger = keyboard_input.just_pressed(KeyCode::H);
 
         if right_trigger {
-            commands.add(tower::TowerSpawner { entity, material: kart.1.clone_weak() });
+            commands.add(tower::TowerSpawner { entity, material: game_assets.kart_colors[&kart_color.0].clone_weak() });
         }
 
         if up {
@@ -223,13 +224,14 @@ fn keyboard_input(
 fn gamepad_input(
     mut commands: Commands,
     mut movement_event_writer: EventWriter<MovementEvent>,
-    keyboard_player: Query<(Entity, &kart::Kart), With<CharacterControllerKeyboard>>,
+    keyboard_player: Query<(Entity, &kart::KartColor), With<CharacterControllerKeyboard>>,
+    game_assets: Res<assets::GameAssets>,
     gamepads: Res<Gamepads>,
     axes: Res<Axis<GamepadAxis>>,
     buttons: Res<Input<GamepadButton>>,
 ) {
     // TODO: refactor this for multiplayer?
-    for (entity, kart) in &keyboard_player {
+    for (entity, kart_color) in &keyboard_player {
         for gamepad in gamepads.iter() {
             let axis_lx = GamepadAxis {
                 gamepad,
@@ -244,7 +246,7 @@ fn gamepad_input(
             if buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::West }) ||
                 buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::North }) || 
                 buttons.just_pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::LeftTrigger }) {
-                commands.add(tower::TowerSpawner { entity, material: kart.1.clone_weak() });
+                commands.add(tower::TowerSpawner { entity, material: game_assets.kart_colors[&kart_color.0].clone_weak() });
             }
 
             if buttons.pressed(GamepadButton { gamepad,  button_type: GamepadButtonType::South }) {

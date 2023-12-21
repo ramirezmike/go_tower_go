@@ -128,8 +128,6 @@ pub fn handle_input(
         *game_state = game_settings::GameState::initialize(
             setting_state.enable_shadows == 1,
             setting_state.enable_background == 1,
-            setting_state.enable_extra_physics == 1,
-            setting_state.enable_extra_entities == 1,
             controller_type
         );
 

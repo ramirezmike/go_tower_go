@@ -1,5 +1,5 @@
 use bevy::{prelude::*, ecs::system::{Command,SystemState}};
-use crate::{assets, ingame, AppState, ingame::player};
+use crate::{assets, ingame, AppState, ingame::player, ingame::kart};
 use bevy_xpbd_3d::PhysicsSet;
 use bevy::transform::TransformSystem;
 use bevy_kira_audio::prelude::*;
@@ -75,8 +75,11 @@ fn handle_hit_events(
 ) {
     for event in health_hit_event_reader.read() {
         if let Ok((entity, mut health)) = healths.get_mut(event.entity) {
-            health.subtract(event.hit_points);
-            commands.entity(entity).insert(Invulnerability::default());
+            #[cfg(not(feature = "endless"))]
+            {
+                health.subtract(event.hit_points);
+                commands.entity(entity).insert(Invulnerability::default());
+            }
         }
     }
 }
@@ -126,7 +129,7 @@ fn healthbar_follow_parent(
     mut commands: Commands,
     mut healthbars: Query<(Entity, &mut Transform, &HealthBar, Has<AudioReceiver>)>,
     audio: Res<Audio>,
-    parents: Query<&Transform, Without<HealthBar>>,
+    parents: Query<&Transform, (With<kart::Kart>, Without<HealthBar>)>,
 ) {
     for (entity, mut healthbar_transform, healthbar, has_receiver) in healthbars.iter_mut() {
         if let Ok(parent) = parents.get(healthbar.parent) {

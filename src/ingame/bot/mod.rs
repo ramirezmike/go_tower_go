@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use crate::{AppState, IngameState};
 use bevy_turborand::prelude::*;
-use super::{controller, path, race, tower, kart};
+use super::{controller, path, race, tower, kart, assets};
 use bevy_xpbd_3d::prelude::*;
 
 #[cfg(feature = "gizmos")]
@@ -15,7 +15,7 @@ impl Plugin for BotPlugin {
                         )
             .add_systems(
                 FixedUpdate,
-                ((place_towers, apply_deferred).chain()).run_if(in_state(AppState::InGame)),
+                ((place_towers, ).chain()).run_if(in_state(AppState::InGame)),
             );
     }
 }
@@ -68,13 +68,14 @@ impl TowerPlacer {
 
 fn place_towers(
     mut commands: Commands,
-    mut bots: Query<(Entity, &mut Bot, &mut TowerPlacer, &kart::Kart)>,
+    mut bots: Query<(Entity, &mut Bot, &mut TowerPlacer, &kart::Kart, &kart::KartColor)>,
+    game_assets: Res<assets::GameAssets>,
     waypoints: Query<&race::WayPoint>,
     mut global_rng: ResMut<GlobalRng>,
     path_manager: Res<path::PathManager>,
     time: Res<Time>,
 ) {
-    for (entity, mut b, mut tower_placer, kart) in &mut bots {
+    for (entity, mut b, mut tower_placer, kart, kart_color) in &mut bots {
         if !b.spawn_delay.tick(time.delta()).finished() {
             continue;
         }
@@ -105,7 +106,7 @@ fn place_towers(
                 if (bot_index - start_index) as f32 / finish_index as f32 > tower_placer.min_percentage_into_track {
                     commands.add(tower::TowerSpawner {
                         entity,
-                        material: kart.1.clone_weak(),
+                        material: game_assets.kart_colors[&kart_color.0].clone_weak(),
                     });
 
                     b.spawn_delay = Timer::from_seconds(1., TimerMode::Once);
