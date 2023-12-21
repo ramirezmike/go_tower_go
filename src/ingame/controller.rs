@@ -209,12 +209,12 @@ fn keyboard_input(
         if left {
             movement_event_writer.send(MovementEvent {
                 entity,
-                action: MovementAction::Turn(1.),
+                action: MovementAction::Turn(0.8),
             });
         } else if right {
             movement_event_writer.send(MovementEvent {
                 entity,
-                action: MovementAction::Turn(-1.),
+                action: MovementAction::Turn(-0.8),
             });
         }
     }
@@ -359,7 +359,8 @@ fn movement(
                     linear_velocity.z -= direction.z * (movement_acceleration.0 * movement_deceleration.0) * delta_time;
                 },
                 MovementAction::Turn(direction) => {
-                    transform.rotate_local_y(direction * (linear_velocity.length() * rotation_damping.0) * delta_time);
+                    let air_turning = if is_grounded { 1. } else { 0.5 };
+                    transform.rotate_local_y(direction * air_turning * (linear_velocity.length() * rotation_damping.0) * delta_time);
                 }
             }
         }
