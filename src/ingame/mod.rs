@@ -78,7 +78,7 @@ impl Command for IngameLoader {
         assets_handler.add_audio(&mut game_assets.bgm_2, "audio/end_bgm.ogg");
 
         assets_handler.add_standard_mesh(&mut game_assets.smoke, Mesh::from(shape::Plane { size: 0.5, subdivisions: 0 }));
-        assets_handler.add_standard_mesh(&mut game_assets.hit_particle, Mesh::from(shape::Cube { size: 0.25, }));
+        assets_handler.add_standard_mesh(&mut game_assets.hit_particle, shape::UVSphere { radius: 0.7, sectors: 3, stacks: 6 }.into());
         assets_handler.add_standard_mesh(&mut game_assets.bullet_mesh, shape::UVSphere { radius: 1.0, sectors: 3, stacks: 6 }.into());
 
         assets_handler.add_mesh(
