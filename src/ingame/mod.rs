@@ -6,7 +6,7 @@ use crate::{assets, AppState, util, IngameState, cleanup, shaders};
 use bevy_mod_outline::{OutlineBundle, OutlineVolume, OutlineMode};
 use bevy_kira_audio::prelude::*;
 
-mod bot;
+pub mod bot;
 mod bullet;
 pub mod camera; 
 mod common;
@@ -104,6 +104,11 @@ fn setup(
     mut game_state: ResMut<game_settings::GameState>,
     mut shader_materials: shaders::ShaderMaterials,
 ) {
+    #[cfg(feature = "debug")]
+    {
+        *game_state = game_settings::GameState::default();
+    }
+
     if let Some(gltf) = assets_gltf.get(&game_assets.track) {
         commands.spawn((
             util::scene_hook::HookedSceneBundle {

@@ -6,7 +6,7 @@ use bevy::{
 use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin};
 use smooth_bevy_cameras::{LookTransform, LookTransformBundle, Smoother};
 use crate::{AppState,};
-use crate::ingame::{tower::TowerSpawner, player::Player, };
+use crate::ingame::{tower::TowerSpawner, player::Player, bot::Bot};
 
 pub struct DebugPlugin;
 impl Plugin for DebugPlugin {
@@ -62,6 +62,7 @@ fn debug(
     mut exit: ResMut<Events<AppExit>>,
     mut cameras: Query<(Entity, Option<&mut FpsCameraController>), With<Camera>>,
     player: Query<Entity, With<Player>>,
+    bots: Query<Entity, With<Bot>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     if keys.just_pressed(KeyCode::Q) {
@@ -69,6 +70,11 @@ fn debug(
     }
     if keys.just_pressed(KeyCode::R) {
         next_state.set(AppState::Initial);
+    }
+    if keys.just_pressed(KeyCode::I) {
+        for e in &bots {
+            commands.entity(e).remove::<Bot>();
+        }
     }
     if keys.just_pressed(KeyCode::C) {
         for (camera, maybe_fps) in &mut cameras {
