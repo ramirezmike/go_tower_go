@@ -275,7 +275,7 @@ fn gamepad_input(
 
 fn handle_fallen(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Transform, &mut LastGrounded), With<player::Player>>,
+    mut query: Query<(Entity, &mut Transform, &mut LastGrounded), With<kart::Kart>>,
     path_manager: Res<path::PathManager>,
     time: Res<Time>,
 ) {
