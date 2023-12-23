@@ -42,6 +42,9 @@ pub struct NextWayPoint(pub WayPoints);
 #[derive(Component)]
 pub struct LapCounter(pub usize);
 
+#[derive(Component)]
+pub struct PlaceCounter(pub usize);
+
 pub struct WayPointSpawner {
     pub entity: Entity,
     pub name: String,
@@ -79,17 +82,18 @@ pub struct WayPointHitHandler {
 impl Command for WayPointHitHandler {
     fn apply(self, world: &mut World) {
         let mut system_state: SystemState<(
-            Query<(&mut NextWayPoint, &mut LapCounter, &mut points::Points, &Place, Has<player::Player>)>,
+            Query<(&mut NextWayPoint, &mut LapCounter, &mut PlaceCounter, &mut points::Points, &Place, Has<player::Player>)>,
             Res<assets::GameAssets>,
             audio::GameAudio,
         )> = SystemState::new(world);
 
         let (mut next_waypoints,game_assets, mut audio) = system_state.get_mut(world);
 
-        if let Ok((mut next_waypoint, mut lap_counter, mut points, place, is_player)) = next_waypoints.get_mut(self.entity) {
+        if let Ok((mut next_waypoint, mut lap_counter, mut place_counter, mut points, place, is_player)) = next_waypoints.get_mut(self.entity) {
             next_waypoint.0 = match next_waypoint.0 {
                 WayPoints::Start => {
                     lap_counter.0 += 1;
+                    place_counter.0 = 0;
                     points.0 += 9 - place.0;
                     if is_player {
                         audio.play_sfx(&game_assets.sfx_lap);

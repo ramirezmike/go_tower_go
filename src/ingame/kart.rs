@@ -296,6 +296,7 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
                 },
                 race::NextWayPoint(race::WayPoints::Quarter),
                 race::LapCounter(1),
+                race::PlaceCounter(0),
                 points::Points(8),
                 Smoker::default(), 
                 self.cleanup_marker,

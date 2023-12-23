@@ -52,7 +52,7 @@ impl PlaceSensor {
 fn detect_racer_places(
     mut commands: Commands,
     place_sensor: Query<&PlaceSensor>,
-    racers: Query<(Entity, &Transform, &race::LapCounter, Has<player::Player>)>,
+    mut racers: Query<(Entity, &Transform, &race::LapCounter, &mut race::PlaceCounter, Has<player::Player>)>,
     spatial_query: SpatialQuery,
     mut health_hit_event_writer: EventWriter<common::health::HealthHitEvent>,
     mut game_state: ResMut<game_settings::GameState>,
@@ -66,7 +66,7 @@ fn detect_racer_places(
     let mut sensed_racers = vec!();
     let mut furthest_place = HashMap::<usize, usize>::default();
     let mut furthest_lap= 0;
-    for (racer_entity, transform, lap_counter, is_player) in &racers {
+    for (racer_entity, transform, lap_counter, mut place_counter, is_player) in &mut racers {
         let hit = spatial_query.cast_ray(
             transform.translation + Vec3::new(0., -10., 0.),
             -Vec3::Y,
@@ -89,10 +89,15 @@ fn detect_racer_places(
                     furthest_place.insert(place_sensor.index, lap_counter.0);
                 }
 
+                if place_counter.0 < current_place && current_place - place_counter.0 < 20 {
+                    place_counter.0 = current_place;
+                }
+
                 furthest_lap = furthest_lap.max(lap_counter.0);
-                sensed_racers.push((racer_entity, lap_counter.0, place_sensor.index, is_player));
             }
-        }
+        } 
+
+        sensed_racers.push((racer_entity, lap_counter.0, place_counter.0, is_player));
     }
 
     sensed_racers.sort_by_key(|(_, lap, place, _)| (lap * 1000) + place);
