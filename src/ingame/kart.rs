@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy::ecs::system::{Command, SystemState};
 use bevy::gltf::Gltf;
 use bevy::render::primitives::Aabb;
-use bevy_inspector_egui::egui::ecolor::linear_f32_from_gamma_u8;
 use bevy_turborand::prelude::*;
 use std::f32::consts::TAU;
 use bevy_xpbd_3d::{math::*, prelude::*};
@@ -300,9 +299,10 @@ impl<C: Component + Clone> Command for KartSpawner<C> {
                 points::Points(8),
                 Smoker::default(), 
                 self.cleanup_marker,
+                Restitution::new(0.0),
                 CollisionLayers::new([collisions::Layer::Kart], [collisions::Layer::Ground, collisions::Layer::Kart]),
                 //controller::CommonControllerBundle::new(Collider::capsule(0.3, 0.5), Vector::NEG_Y * 9.81 * 1.5)
-                controller::CommonControllerBundle::new(Collider::cuboid(1.5, 1.0, 1.5), Vector::NEG_Y * 9.81 * 1.5),
+                controller::CommonControllerBundle::new(Collider::cuboid(1.5, 1.0, 1.5), Vector::NEG_Y * config::GRAVITY_FORCE),
             )).with_children(|builder| {
 //              builder.spawn((PbrBundle {
 //                  mesh: cube_mesh,

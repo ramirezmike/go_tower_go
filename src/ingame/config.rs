@@ -14,3 +14,4 @@ pub const BULLET_HIT_COUNT: usize = 6;
 pub const KART_DIE_HIT_COUNT: usize = 12;
 pub const AUDIO_DISTANCE: f32 = 20.;
 pub const SHRAPNEL_TIME_TO_LIVE: f32 = 5.;
+pub const GRAVITY_FORCE: f32 = 9.81 * 15.0;
