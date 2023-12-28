@@ -1,7 +1,7 @@
 // Adapted from bevy_xpbd_3d 🙏🙏🙏🙏🙏  
 use bevy::{ecs::query::Has, prelude::*};
 use bevy_xpbd_3d::{math::*, prelude::*, SubstepSchedule, SubstepSet};
-use crate::{ingame::kart, ingame::assets, ingame::config, ingame::tower, AppState, IngameState, ingame::path, ingame::player};
+use crate::{ingame::kart, ingame::assets, ingame::player, ingame::config, ingame::tower, AppState, IngameState, ingame::path,};
 use bevy::input::gamepad::GamepadButtonType;
 
 pub struct CharacterControllerPlugin;
@@ -179,9 +179,9 @@ fn keyboard_input(
     mut movement_event_writer: EventWriter<MovementEvent>,
     game_assets: Res<assets::GameAssets>,
     keyboard_input: Res<Input<KeyCode>>,
-    keyboard_player: Query<(Entity, &kart::KartColor), With<CharacterControllerKeyboard>>,
+    keyboard_player: Query<(Entity, &kart::KartColor,), With<CharacterControllerKeyboard>>,
 ) {
-    for (entity, kart_color) in &keyboard_player {
+    for (entity, kart_color, ) in &keyboard_player {
         let up = keyboard_input.any_pressed([KeyCode::W, KeyCode::Z, KeyCode::Up]);
         let down = keyboard_input.any_pressed([KeyCode::S, KeyCode::Down]);
         let left = keyboard_input.any_pressed([KeyCode::A, KeyCode::Q, KeyCode::Left]);

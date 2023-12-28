@@ -14,7 +14,7 @@ use bevy::gizmos::gizmos::Gizmos;
 pub struct TowerPlugin;
 impl Plugin for TowerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, tower_actions.run_if(in_state(AppState::InGame)));
+        app.add_systems(Update, (tower_actions, handle_launchers).chain().run_if(in_state(AppState::InGame)));
     }
 }
 
@@ -31,6 +31,75 @@ struct Tower {
 #[derive(Component)]
 struct Cannon {
     parent: Entity,
+}
+
+fn test_tower(
+    karts: Query<(&Transform, &kart::Kart, &kart::KartColor, &mut points::Points), With<player::Player>>,
+    path_manager: Res<path::PathManager>,
+    spatial_query: SpatialQuery,
+
+    #[cfg(feature = "gizmos")]
+    mut gizmos: Gizmos,
+) {
+    for (transform, kart, kart_color, mut point) in &karts {
+        let starting_height = 5.0;
+        let spawn_point = transform.translation;
+        let check_point = 
+                path_manager.get_closest_index(spawn_point)
+                            .and_then(|i| path_manager.get_next(i + 2))
+                            .map(|i| path_manager.get(i))
+                            .map(|v| spawn_point.lerp(v, 0.45))
+                            .unwrap_or(spawn_point);
+        let rays_to_cast = vec!(
+            check_point + Vec3::new(-config::TRACK_WIDTH, starting_height, 0.0),
+            check_point + Vec3::new(config::TRACK_WIDTH, starting_height, 0.0),
+            check_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH),
+            check_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH),
+
+            // just in case?
+            check_point + Vec3::new(config::TRACK_WIDTH, starting_height, config::TRACK_WIDTH),
+            check_point + Vec3::new(config::TRACK_WIDTH, starting_height, -config::TRACK_WIDTH),
+            check_point + Vec3::new(-config::TRACK_WIDTH, starting_height, -config::TRACK_WIDTH),
+            check_point + Vec3::new(-config::TRACK_WIDTH, starting_height, config::TRACK_WIDTH),
+
+            // uhh ok one more just in case?
+            check_point + Vec3::new(-config::TRACK_WIDTH - 1., starting_height, 0.0),
+            check_point + Vec3::new(config::TRACK_WIDTH + 1., starting_height, 0.0),
+            check_point + Vec3::new(0.0, starting_height, -config::TRACK_WIDTH - 1.),
+            check_point + Vec3::new(0.0, starting_height, config::TRACK_WIDTH + 1.),
+
+            check_point + Vec3::new(config::TRACK_WIDTH + 1., starting_height, config::TRACK_WIDTH + 1.),
+            check_point + Vec3::new(config::TRACK_WIDTH + 1., starting_height, -config::TRACK_WIDTH - 1.),
+            check_point + Vec3::new(-config::TRACK_WIDTH - 1., starting_height, -config::TRACK_WIDTH - 1.),
+            check_point + Vec3::new(-config::TRACK_WIDTH - 1., starting_height, config::TRACK_WIDTH + 1.),
+        );
+
+        #[cfg(feature = "gizmos")]
+        {
+            gizmos.sphere(check_point, Quat::IDENTITY, 1., Color::PINK);
+        }
+
+        for ray in rays_to_cast {
+            let hit = spatial_query.cast_ray(
+                ray,
+                -Vec3::Y,
+                10.0,
+                true,
+                SpatialQueryFilter::default(),
+            );
+
+
+            #[cfg(feature = "gizmos")]
+            {
+                if hit.is_none() {
+                    gizmos.line(ray, ray + Vec3::new(0., -10., 0.), Color::GREEN);
+                    break;
+                } else {
+                    gizmos.sphere(ray - Vec3::new(0., hit.unwrap().time_of_impact, 0.), Quat::IDENTITY, 1., Color::RED);
+                }
+            }
+        }
+    }
 }
 
 fn tower_actions(
@@ -102,7 +171,9 @@ pub struct CannonSpawner {
     spawn_point: Vec3,
     target: Vec3,
     outline_color: Color,
-    outline_width: f32
+    outline_width: f32,
+    scaler: common::scaler::Scaler,
+    scale: Vec3,
 }
 
 impl Command for CannonSpawner {
@@ -121,12 +192,13 @@ impl Command for CannonSpawner {
             PbrBundle {
                 mesh,
                 material,
-                transform: Transform::from_translation(self.spawn_point + Vec3::new(0., config::TOWER_HEIGHT - 1., 0.))
-                            .looking_at(self.target - Vec3::new(0., config::TOWER_HEIGHT - 1., 0.), Vec3::Y)
-                            .with_scale(Vec3::splat(0.1)),
+                transform: 
+                    Transform::from_translation(self.spawn_point + Vec3::new(0., config::TOWER_HEIGHT - 1., 0.))
+                            .with_scale(self.scale)
+                            .looking_at(self.target - Vec3::new(0., config::TOWER_HEIGHT - 1., 0.), Vec3::Y),
                 ..default()
             },
-            common::scaler::Scaler::new(Vec3::splat(1.0), 0.5, 0.0, true),
+            self.scaler,
             ingame::CleanupMarker,
             Cannon {
                 parent: self.parent,
@@ -141,6 +213,66 @@ impl Command for CannonSpawner {
                 ..default()
             })
         );
+    }
+}
+
+
+#[derive(Component)]
+struct LaunchedTower {
+    initial: Vec3,
+    target: Vec3,
+    timer: Timer,
+}
+
+fn handle_launchers( 
+    mut commands: Commands,
+    mut launched_towers: Query<(Entity, &mut Transform, &mut LaunchedTower)>,
+    time: Res<Time>,
+) {
+    for (entity, mut transform, mut tower) in &mut launched_towers {
+        tower.timer.tick(time.delta());
+        let elapsed_percent = tower.timer.percent();
+
+        let mut target = tower.target;
+        let mut initial = tower.initial;
+        if elapsed_percent < 0.5 {
+            target.y += 5.0;
+        } else {
+            initial.y += 5.0;
+        }
+
+        transform.translation = initial.lerp(target, elapsed_percent);
+
+        if tower.timer.finished() {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+#[derive(Component)]
+struct TowerAimerMarker;
+pub struct TowerAimerSpawner  {
+    pub entity: Entity,
+    pub material: Handle<StandardMaterial>,
+}
+
+impl Command for TowerAimerSpawner {
+    fn apply(self, world: &mut World) {
+        let mut system_state: SystemState<(
+            assets::loader::AssetsHandler,
+            Res<assets::GameAssets>,
+            Res<Assets<Gltf>>,
+            ResMut<GlobalRng>,
+            Query<(&Transform, &kart::Kart, &kart::KartColor, &mut points::Points)>,
+        )> = SystemState::new(world);
+
+        let (mut assets_handler, game_assets, assets_gltf, mut global_rng, mut points) = system_state.get_mut(world);
+
+        if let Ok((transform, kart, kart_color, mut point)) = points.get_mut(self.entity) {
+            let cost = if cfg!(feature = "endless") { 0 } else { 4 }; 
+            if point.0 >= cost {
+            }
+        }
     }
 }
 
@@ -176,7 +308,7 @@ impl Command for TowerSpawner {
                     let check_point = 
                         if is_player { 
                             path_manager.get_closest_index(spawn_point)
-                                        .and_then(|i| path_manager.get_next(i + 1))
+                                        .and_then(|i| path_manager.get_next(i + 2))
                                         .map(|i| path_manager.get(i))
                                         .map(|v| spawn_point.lerp(v, 0.45))
                                         .unwrap_or(spawn_point)
@@ -231,6 +363,63 @@ impl Command for TowerSpawner {
                             let kart_color = kart_color.clone();
 
                             let sfx = audio.play(game_assets.sfx_tower.clone()).with_volume(0.).handle();
+                            let mini_tower_scene = gltf.scenes[0].clone_weak();
+                            let color = kart.0;
+                            let tower_color = kart.0;
+                            let kart_color = kart_color.clone();
+                            let initial_translation = transform.translation + (transform.back() * 1.) + Vec3::new(0., 0., 0.);
+
+                            world.spawn((
+                                kart_color,
+                                ingame::CleanupMarker,
+                                TowerAimerMarker,
+                                LaunchedTower {
+                                    initial: initial_translation,
+                                    target: spawn_point,
+                                    timer: Timer::from_seconds(0.5, TimerMode::Once),
+                                },
+                                common::scaler::Scaler {
+                                    size: Vec3::splat(0.1),
+                                    scale_up_time: 0.25,
+                                    scale_down_time: 0.0,
+                                    has_started: true,
+                                    initial: Vec3::splat(0.1),
+                                    target: Vec3::splat(0.1),
+                                    ..default()
+                                },
+                                util::scene_hook::HookedSceneBundle {
+                                    scene: SceneBundle {
+                                        scene: mini_tower_scene,
+                                        transform: Transform::from_translation(initial_translation).with_scale(Vec3::splat(0.1)),
+                                        ..default()
+                                    },
+                                    hook: util::scene_hook::SceneHook::new(move |cmds, hook_data| {
+                                        if let (Some(mesh), Some(name)) = (hook_data.mesh, hook_data.name) {
+                                            cmds.insert(
+                                            OutlineBundle {
+                                                outline: OutlineVolume {
+                                                    visible: true,
+                                                    width: if is_player { 8.0 } else { 1.0 },
+                                                    colour: if is_player { tower_color } else { Color::BLACK },
+                                                },
+                                                mode: OutlineMode::RealVertex,
+                                                ..default()
+                                            });
+                                        }
+                                    })
+                                }, 
+                            ));
+
+                            let scaler =  common::scaler::Scaler {
+                                    size: Vec3::splat(1.0),
+                                    scale_up_time: 0.5,
+                                    scale_down_time: 0.0,
+                                    has_started: true,
+                                    delay: Timer::from_seconds(0.5, TimerMode::Once),
+                                    initial: Vec3::splat(0.),
+                                    target: Vec3::splat(1.),
+                                    ..default()
+                                };
 
                             let tower_id = world.spawn((
                                 Tower {
@@ -246,11 +435,11 @@ impl Command for TowerSpawner {
                                     instances: vec![sfx],
                                 },
                                 ingame::CleanupMarker,
-                                common::scaler::Scaler::new(Vec3::splat(1.0), 0.5, 0.0, true),
+                                scaler.clone(), 
                                 util::scene_hook::HookedSceneBundle {
                                     scene: SceneBundle {
                                         scene,
-                                        transform: Transform::from_translation(spawn_point).with_scale(Vec3::splat(0.1)),
+                                        transform: Transform::from_translation(spawn_point).with_scale(Vec3::splat(0.0)),
                                         ..default()
                                     },
                                     hook: util::scene_hook::SceneHook::new(move |cmds, hook_data| {
@@ -275,7 +464,9 @@ impl Command for TowerSpawner {
                                 spawn_point,
                                 outline_color: if is_player { tower_color } else { Color::BLACK },
                                 outline_width: if is_player { 8.0 } else { 1.0 },
-                                target
+                                target,
+                                scale: Vec3::splat(0.0),
+                                scaler,
                             };
                             cannon_spawner.apply(world);
                             break;

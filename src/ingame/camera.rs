@@ -25,14 +25,16 @@ impl Plugin for CameraPlugin {
 }
 
 fn follow_player(
-    players: Query<(&Transform, &LinearVelocity), With<player::Player>>,
+    players: Query<(&Transform, &LinearVelocity, ), With<player::Player>>,
     mut cameras: Query<&mut Transform, (With<Camera>, Without<FpsCameraController>, Without<player::Player>)>,
     time: Res<Time>,
 //  mut cameras: Query<&mut Transform, >,
 ) {
     for mut c_transform in &mut cameras {
         for (player_transform, linear_velocity) in &players {
-            let new_translation = player_transform.translation + (player_transform.back() * 15.0) + Vec3::new(0., 5.0, 0.);
+            let back_offset = 15.0;
+            let height = 5.0;
+            let new_translation = player_transform.translation + (player_transform.back() * back_offset) + Vec3::new(0., height, 0.);
             let diff = new_translation - c_transform.translation;
             // try to slow down Y changes
             let y_speed = 2.;
