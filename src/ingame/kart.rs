@@ -167,7 +167,7 @@ fn spawn_smoke(
 ) {
     for (mut smoker, transform, linear_velocity, is_braking) in &mut smokers {
         if smoker.cooldown.tick(time.delta()).just_finished() {
-            if linear_velocity.0.length() > 1. && (is_braking || linear_velocity.0.angle_between(transform.forward()) > 0.4) {
+            if linear_velocity.0.length() > 3. && (is_braking || linear_velocity.0.angle_between(transform.forward()) > 0.4) {
                 smoke_event_writer.send(particle::CreateParticleEvent {
                     position: *transform
                 });
@@ -194,8 +194,15 @@ fn animate_karts(
 ) {
     for (mut player, link) in &mut animations {
         if let Ok(linear_velocity) = karts.get(link.entity) {
-            player.play(game_assets.drive_animation.clone_weak()).repeat();
-            player.set_speed(linear_velocity.0.length());
+            let velocity = linear_velocity.0.length(); 
+            if velocity > 3.0 {
+                player.play(game_assets.drive_animation.clone_weak()).repeat();
+                player.resume();
+                player.set_speed(velocity);
+            } else {
+                player.pause();
+                player.set_speed(0.);
+            }
         }
     }
 }
